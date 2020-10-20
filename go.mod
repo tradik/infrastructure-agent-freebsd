@@ -21,7 +21,7 @@ require (
 	github.com/gogo/protobuf v1.1.2-0.20181116123445-07eab6a8298c // indirect
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/gorilla/mux v1.7.4 // indirect
+	github.com/gorilla/mux v1.8.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kardianos/service v1.1.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -45,6 +45,7 @@ require (
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
 	google.golang.org/grpc v1.29.1 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
+	gopkg.in/pipe.v2 v2.0.0-20140414041502-3c2ca4d52544
 	gopkg.in/yaml.v2 v2.2.7
 	gotest.tools v2.2.1-0.20181123051433-bcbf6e613274+incompatible
 )
