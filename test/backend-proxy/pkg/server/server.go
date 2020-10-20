@@ -27,11 +27,12 @@ type Server interface {
 }
 
 // GetRouter returns the stub router
-func GetRouter() Server {
+func GetRouter(config Config) Server {
 	r := mux.NewRouter()
 	sh := &serverHandler{
-		handler: r,
-		client:  http.DefaultClient,
+		handler:          r,
+		client:           http.DefaultClient,
+		collectorBaseURL: config.CollectorBaseURL,
 	}
 	r.PathPrefix("/collector").HandlerFunc(sh.fakeCollectorHandler)
 	r.PathPrefix("/metric").HandlerFunc(sh.fakeMetricHandler)
@@ -46,8 +47,9 @@ func GetRouter() Server {
 }
 
 type serverHandler struct {
-	handler http.Handler
-	client  *http.Client
+	handler          http.Handler
+	client           *http.Client
+	collectorBaseURL string
 }
 
 func (s serverHandler) GetHandler() http.Handler {
@@ -82,7 +84,7 @@ func (s serverHandler) fakeCollectorHandler(w http.ResponseWriter, req *http.Req
 		}
 	}()
 
-	endpoint := "https://staging-infra-api.newrelic.com" + req.URL.Path[10:]
+	endpoint := s.collectorBaseURL + req.URL.Path[10:]	// trim "/collector" from the front of the URL path
 	sendLog := slog.WithField("Endpoint", endpoint)
 	sendLog.Info("Attempting to send data")
 	httpReq, err := http.NewRequest(req.Method, endpoint, orig)
@@ -92,11 +94,11 @@ func (s serverHandler) fakeCollectorHandler(w http.ResponseWriter, req *http.Req
 
 	for key := range req.Header {
 		if key != "Content-Length" {
-			key := req.Header.Get(key)
+			val := req.Header.Get(key)
 			sendLog.
-				WithField("Header Value", key).
+				WithField("Header Value", val).
 				WithField("Header Key", key).Info("Adding header")
-			httpReq.Header.Set(key, key)
+			httpReq.Header.Set(key, val)
 		}
 	}
 	httpResp, err := s.client.Do(httpReq)
@@ -195,11 +197,11 @@ func (s serverHandler) fakeIdentityHandler(w http.ResponseWriter, req *http.Requ
 
 	for key := range req.Header {
 		if key != "Content-Length" {
-			key := req.Header.Get(key)
+			val := req.Header.Get(key)
 			sendLog.
-				WithField("Header Value", key).
+				WithField("Header Value", val).
 				WithField("Header Key", key).Info("Adding header")
-			httpReq.Header.Set(key, key)
+			httpReq.Header.Set(key, val)
 		}
 	}
 	httpResp, err := s.client.Do(httpReq)
@@ -287,11 +289,11 @@ func (s serverHandler) fakeCommandChannelHandler(w http.ResponseWriter, req *htt
 
 	for key := range req.Header {
 		if key != "Content-Length" {
-			key := req.Header.Get(key)
+			val := req.Header.Get(key)
 			sendLog.
-				WithField("Header Value", key).
+				WithField("Header Value", val).
 				WithField("Header Key", key).Info("Adding header")
-			httpReq.Header.Set(key, key)
+			httpReq.Header.Set(key, val)
 		}
 	}
 	httpResp, err := s.client.Do(httpReq)

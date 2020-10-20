@@ -15,7 +15,7 @@ var (
 )
 
 func main() {
-	r := server.GetRouter()
+	r := server.GetRouter(server.NewConfig())
 	addr := "127.0.0.1:8080"
 	srv := &http.Server{
 		Handler: r.GetHandler(),
