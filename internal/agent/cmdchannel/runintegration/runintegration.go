@@ -25,9 +25,9 @@ type runIntArgs struct {
 	IntegrationArgs []string `json:"integration_args"`
 }
 
-// NewHandler creates a cmd-channel handler for cmd poll backoff requests.
+// NewHandler creates a cmd-channel handler for run-integration requests.
 func NewHandler(definitionQ chan<- integration.Definition, il integration.InstancesLookup, logger log.Entry) *cmdchannel.CmdHandler {
-	handleF := func(ctx context.Context, cmd commandapi.Command, initialFetch bool) (backoffSecs int, err error) {
+	handleF := func(ctx context.Context, cmd commandapi.Command, initialFetch bool) (err error) {
 		var args runIntArgs
 		if err = json.Unmarshal(cmd.Args, &args); err != nil {
 			err = cmdchannel.NewArgsErr(err)
@@ -44,11 +44,11 @@ func NewHandler(definitionQ chan<- integration.Definition, il integration.Instan
 			logger.
 				WithField("cmd_id", cmd.ID).
 				WithField("cmd_name", cmd.Name).
-				WithField("cmd_args", fmt.Sprintf("%+v", cmd.Args)).
+				WithField("cmd_args", string(cmd.Args)).
 				WithField("cmd_args_name", args.IntegrationName).
 				WithField("cmd_args_args", fmt.Sprintf("%+v", args.IntegrationArgs)).
 				WithError(err).
-				Warn("cannot create handler for cmd channel request")
+				Warn("cannot create handler for cmd channel run_integration requests")
 			return
 		}
 
