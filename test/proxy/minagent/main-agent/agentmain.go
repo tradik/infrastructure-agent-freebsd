@@ -26,14 +26,11 @@ import (
 	v4 "github.com/newrelic/infrastructure-agent/pkg/integrations/v4"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/dm"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/emitter"
-	wlog "github.com/newrelic/infrastructure-agent/pkg/log"
 	"github.com/newrelic/infrastructure-agent/pkg/plugins"
 	"github.com/newrelic/infrastructure-agent/test/infra"
 	"github.com/newrelic/infrastructure-agent/test/proxy/minagent"
 	"github.com/sirupsen/logrus"
 )
-
-
 
 // minimalist agent. It loads the configuration from the environment and the file passed by the -config flag.
 // It just submits `FakeSample` instances to the collector.
@@ -55,25 +52,15 @@ func main() {
 		cfg.CABundleDir = "/cabundle"
 	}
 	cfg.PayloadCompressionLevel = gzip.NoCompression
-
-
-	initializeAgentAndRun(malog,cfg)
-
+	initializeAgentAndRun(malog, cfg)
 }
 
 
-var aslog = wlog.WithComponent("AgentService").WithFields(logrus.Fields{
-	"service": "coreint",
-})
 
 func initializeAgentAndRun(malog *logrus.Entry, cfg *config.Config) error {
-	v,err:=json.Marshal(cfg)
+	v, err := json.Marshal(cfg)
 	malog.Debug(string(v))
 	agt := infra.NewAgentFromConfig(cfg)
-	//agent.RegisterPlugin(NewConfigFilePlugin(ids.PluginID{"files", "config"}, agent.Context))
-
-	malog.Debug("agent is creted")
-
 	pluginSourceDirs := []string{
 		cfg.CustomPluginInstallationDir,
 		filepath.Join(cfg.AgentDir, "custom-integrations"),
@@ -81,9 +68,7 @@ func initializeAgentAndRun(malog *logrus.Entry, cfg *config.Config) error {
 		filepath.Join(cfg.AgentDir, "bundled-plugins"),
 		filepath.Join(cfg.AgentDir, "plugins"),
 	}
-	malog.Debugf("RemoveEmptyAndDuplicateEntries from %v",pluginSourceDirs)
 	pluginSourceDirs = helpers.RemoveEmptyAndDuplicateEntries(pluginSourceDirs)
-
 	integrationCfg := v4.NewConfig(
 		cfg.Verbose,
 		cfg.Features,
@@ -91,28 +76,16 @@ func initializeAgentAndRun(malog *logrus.Entry, cfg *config.Config) error {
 		cfg.PluginInstanceDirs,
 		pluginSourceDirs,
 	)
-
-	malog.Debugf("NewManager")
 	ffManager := feature_flags.NewManager(cfg.Features)
-
-
 	fatal := func(err error, message string) {
-		aslog.WithError(err).Error(message)
+		malog.WithError(err).Error(message)
 		os.Exit(1)
 	}
-
-
 	defer agt.Terminate()
-
-	malog.Debug("initialize.AgentService")
 	if err := initialize.AgentService(cfg); err != nil {
 		fatal(err, "Can't complete platform specific initialization.")
 	}
-
-	malog.Debug("creat emetric sender config")
 	metricsSenderConfig := dm.NewConfig(cfg.MetricURL, cfg.License, time.Duration(cfg.DMSubmissionPeriod)*time.Second, cfg.MaxMetricBatchEntitiesCount, cfg.MaxMetricBatchEntitiesQueue)
-
-	malog.Debug("creat deminesional metric sender")
 	dmSender, err := dm.NewDMSender(metricsSenderConfig, http.DefaultTransport, agt.Context.IdContext().AgentIdentity)
 	if err != nil {
 		return err
@@ -132,44 +105,20 @@ func initializeAgentAndRun(malog *logrus.Entry, cfg *config.Config) error {
 
 	// track stoppable integrations
 	tracker := track.NewTracker(dmEmitter)
-	il:=newInstancesLookup(integrationCfg)
+	il := newInstancesLookup(integrationCfg)
 	integrationEmitter := emitter.NewIntegrationEmittor(agt, dmEmitter, ffManager)
-	malog.Debug("create v4.NewManager")
 	integrationManager := v4.NewManager(integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
 
-
 	// Start all plugins we want the agent to run.
-	malog.Debug("RegisterPlugins")
 	if err = plugins.RegisterPlugins(agt, integrationEmitter); err != nil {
-		aslog.WithError(err).Error("fatal error while registering plugins")
+		malog.WithError(err).Error("fatal error while registering plugins")
 		os.Exit(1)
 	}
-
-	malog.Debug("integrationManager.Start")
 	go integrationManager.Start(agt.Context.Ctx)
 	pluginRegistry := legacy.NewPluginRegistry(pluginSourceDirs, cfg.PluginInstanceDirs)
 	if err := pluginRegistry.LoadPlugins(); err != nil {
 		fatal(err, "Can't load plugins.")
 	}
-	/**
-	malog.Debug("legacy.LoadPluginConfig")
-	pluginConfig, err := legacy.LoadPluginConfig(pluginRegistry, cfg.PluginConfigFiles)
-	if err != nil {
-		fatal(err, "Can't load plugin configuration.")
-	}
-	runner := legacy.NewPluginRunner(pluginRegistry, agt)
-	for _, pluginConf := range pluginConfig.PluginConfigs {
-		if err := runner.ConfigurePlugin(pluginConf, agt.Context.ActiveEntitiesChannel()); err != nil {
-			fatal(err, fmt.Sprint("Can't configure plugin.", pluginConf))
-		}
-	}
-
-	if err := runner.ConfigureV1Plugins(agt.Context); err != nil {
-		aslog.WithError(err).Debug("Can't configure integrations.")
-	}
-**/
-	malog.Info("New Relic infrastructure agent is running.")
-
 	return agt.Run()
 }
 
