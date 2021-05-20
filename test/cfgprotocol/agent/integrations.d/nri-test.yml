@@ -2,6 +2,6 @@ integrations:
   - name: nri-config-protocol
     exec:
       - /bin/cat
-      - /etc/newrelic-infra/integrations.d/configprotocol.json
+      - /Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d/configprotocol.json
     interval: 15
     timeout: 0

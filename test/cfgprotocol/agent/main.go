@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/newrelic/infrastructure-agent/cmd/newrelic-infra/initialize"
+	"github.com/newrelic/infrastructure-agent/internal/agent"
 	"github.com/newrelic/infrastructure-agent/internal/feature_flags"
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/files"
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration"
@@ -30,21 +31,30 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// minimalist agent. It loads the configuration from the environment and the file passed by the -config flag.
-// It just submits `FakeSample` instances to the collector.
-func main() {
-	malog := logrus.WithField("component", "minimal-standalone-agent")
-	logrus.Info("Runing minimalistic test agent...")
-	runtime.GOMAXPROCS(1)
-	initializeAgentAndRun(malog)
+func main(){
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.Info("TEXT")
+	executor := New()
+	logrus.Debug("TEXT")
+	go executor.RunAgent()
+	time.Sleep(20*time.Second)
 }
 
-func initializeAgentAndRun(malog *logrus.Entry) error {
+var testClient = ihttp.NewRequestRecorderClient()
 
-	const timeout = 5 * time.Second
+const timeout = 5 * time.Second
 
-	testClient := ihttp.NewRequestRecorderClient()
-	agt := infra.NewAgent(testClient.Client, func(config *config.Config) {
+type AgentExecutor struct {
+	recordClient *ihttp.RequestRecorderClient
+	agent        *agent.Agent
+}
+
+func (ae *AgentExecutor) Client() *ihttp.RequestRecorderClient {
+	return ae.recordClient
+}
+
+func New() AgentExecutor {
+	agent:= infra.NewAgent(testClient.Client, func(config *config.Config) {
 		config.DisplayName = "my_display_name"
 		config.License = "abcdef012345"
 		config.PayloadCompressionLevel = gzip.NoCompression
@@ -54,8 +64,24 @@ func initializeAgentAndRun(malog *logrus.Entry) error {
 		config.LogToStdout = true
 		config.Debug = true
 	})
+	return AgentExecutor{
+		recordClient: ihttp.NewRequestRecorderClient(),
+		agent: agent,
+	}
+}
 
-	cfg := agt.GetContext().Config()
+func (ae *AgentExecutor) Terminate() {
+	ae.agent.Terminate()
+}
+
+// minimalist agent. It loads the configuration from the environment and the file passed by the -config flag.
+// It just submits `FakeSample` instances to the collector.
+func (ae *AgentExecutor) RunAgent() error {
+	malog := logrus.WithField("component", "minimal-standalone-agent")
+	logrus.Info("Runing minimalistic test agent...")
+	runtime.GOMAXPROCS(1)
+	
+	cfg := ae.agent.GetContext().Config()
 
 	pluginSourceDirs := []string{
 		cfg.CustomPluginInstallationDir,
@@ -77,12 +103,12 @@ func initializeAgentAndRun(malog *logrus.Entry) error {
 		malog.WithError(err).Error(message)
 		os.Exit(1)
 	}
-	defer agt.Terminate()
+
 	if err := initialize.AgentService(cfg); err != nil {
 		fatal(err, "Can't complete platform specific initialization.")
 	}
 	metricsSenderConfig := dm.NewConfig(cfg.MetricURL, cfg.License, time.Duration(cfg.DMSubmissionPeriod)*time.Second, cfg.MaxMetricBatchEntitiesCount, cfg.MaxMetricBatchEntitiesQueue)
-	dmSender, err := dm.NewDMSender(metricsSenderConfig, http.DefaultTransport, agt.Context.IdContext().AgentIdentity)
+	dmSender, err := dm.NewDMSender(metricsSenderConfig, http.DefaultTransport, ae.agent.Context.IdContext().AgentIdentity)
 	if err != nil {
 		return err
 	}
@@ -94,28 +120,29 @@ func initializeAgentAndRun(malog *logrus.Entry) error {
 	// queues integration terminated definitions
 	terminateDefinitionQ := make(chan string, 100)
 	var registerClient identityapi.RegisterClient
-	emitterWithRegister := dm.NewEmitter(agt.GetContext(), dmSender, registerClient)
-	nonRegisterEmitter := dm.NewNonRegisterEmitter(agt.GetContext(), dmSender)
+	emitterWithRegister := dm.NewEmitter(ae.agent.GetContext(), dmSender, registerClient)
+	nonRegisterEmitter := dm.NewNonRegisterEmitter(ae.agent.GetContext(), dmSender)
 
 	dmEmitter := dm.NewEmitterWithFF(emitterWithRegister, nonRegisterEmitter, ffManager)
 
 	// track stoppable integrations
 	tracker := track.NewTracker(dmEmitter)
 	il := newInstancesLookup(integrationCfg)
-	integrationEmitter := emitter.NewIntegrationEmittor(agt, dmEmitter, ffManager)
+	integrationEmitter := emitter.NewIntegrationEmittor(ae.agent, dmEmitter, ffManager)
 	integrationManager := v4.NewManager(integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
 
 	// Start all plugins we want the agent to run.
-	if err = plugins.RegisterPlugins(agt, integrationEmitter); err != nil {
+	if err = plugins.RegisterPlugins(ae.agent, integrationEmitter); err != nil {
 		malog.WithError(err).Error("fatal error while registering plugins")
 		os.Exit(1)
 	}
-	go integrationManager.Start(agt.Context.Ctx)
+	go integrationManager.Start(ae.agent.Context.Ctx)
+
 	pluginRegistry := legacy.NewPluginRegistry(pluginSourceDirs, cfg.PluginInstanceDirs)
 	if err := pluginRegistry.LoadPlugins(); err != nil {
 		fatal(err, "Can't load plugins.")
 	}
-	return agt.Run()
+	return ae.agent.Run()
 }
 
 func newInstancesLookup(cfg v4.Configuration) integration.InstancesLookup {

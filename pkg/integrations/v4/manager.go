@@ -5,6 +5,7 @@ package v4
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -256,7 +257,7 @@ func (mgr *Manager) Start(ctx context.Context) {
 	}
 
 	go mgr.handleRequestsQueue(ctx)
-
+	fmt.Println("---")
 	mgr.watchForFSChanges(ctx)
 }
 
