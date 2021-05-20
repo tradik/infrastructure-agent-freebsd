@@ -1,6 +1,6 @@
 # default agent configuration
 collector_url: https://fake-collector:4444
 license_key: abcdef012345
-plugins_dir: /opt/newrelic-infra/integrations.d
 register_enabled: false
+#plugins_dir: /opt/newrelic-infra/integrations.d
 verbose: 1

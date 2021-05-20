@@ -37,9 +37,6 @@ func TestMain(m *testing.M) {
 func Test_Demo(t *testing.T) {
 	fmt.Println("Agent is running")
 	require.NoError(t, restartAgent(minagent.ConfigOptions{
-		Environment: map[string]string{
-			"NRIA_DISPLAY_NAME": "nria-test",
-		},
 		ConfigFile: "/fake-config-cfgprotocol.yml",
 	}))
 	time.Sleep(10*time.Minute)

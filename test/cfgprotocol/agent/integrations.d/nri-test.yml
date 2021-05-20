@@ -2,5 +2,5 @@ integrations:
   - name: nri-config-protocol
     exec:
       - /bin/cat
-      - /opt/newrelic-infra/data/configprotocol.json
+      - /etc/newrelic-infra/integrations.d/configprotocol.json
     interval: 0
