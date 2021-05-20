@@ -18,9 +18,7 @@ import (
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/v3legacy"
 	"github.com/newrelic/infrastructure-agent/pkg/backend/identityapi"
 	"github.com/newrelic/infrastructure-agent/pkg/config"
-	"github.com/newrelic/infrastructure-agent/pkg/helpers"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/configrequest"
-	"github.com/newrelic/infrastructure-agent/pkg/integrations/legacy"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/track"
 	v4 "github.com/newrelic/infrastructure-agent/pkg/integrations/v4"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/dm"
@@ -31,13 +29,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func main(){
+func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.Info("TEXT")
-	executor := New()
+	executor := New("/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d")
 	logrus.Debug("TEXT")
 	go executor.RunAgent()
-	time.Sleep(20*time.Second)
+	time.Sleep(20 * time.Second)
 }
 
 var testClient = ihttp.NewRequestRecorderClient()
@@ -45,28 +43,40 @@ var testClient = ihttp.NewRequestRecorderClient()
 const timeout = 5 * time.Second
 
 type AgentExecutor struct {
-	recordClient *ihttp.RequestRecorderClient
-	agent        *agent.Agent
+	recordClient   *ihttp.RequestRecorderClient
+	agent          *agent.Agent
+	integrationCfg v4.Configuration
 }
 
 func (ae *AgentExecutor) Client() *ihttp.RequestRecorderClient {
 	return ae.recordClient
 }
 
-func New() AgentExecutor {
-	agent:= infra.NewAgent(testClient.Client, func(config *config.Config) {
+func New(integrationDir string) AgentExecutor {
+
+	agent := infra.NewAgent(testClient.Client, func(config *config.Config) {
 		config.DisplayName = "my_display_name"
 		config.License = "abcdef012345"
 		config.PayloadCompressionLevel = gzip.NoCompression
 		config.Verbose = 1
-		config.PluginDir = "/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d"
+		config.PluginDir = integrationDir
 		config.LogFormat = "text"
 		config.LogToStdout = true
 		config.Debug = true
 	})
+	cfg := agent.Context.Config()
+
+	integrationCfg := v4.NewConfig(
+		cfg.Verbose,
+		cfg.Features,
+		cfg.PassthroughEnvironment,
+		cfg.PluginInstanceDirs,
+		[]string{integrationDir},
+	)
 	return AgentExecutor{
-		recordClient: ihttp.NewRequestRecorderClient(),
-		agent: agent,
+		recordClient:   ihttp.NewRequestRecorderClient(),
+		agent:          agent,
+		integrationCfg: integrationCfg,
 	}
 }
 
@@ -80,24 +90,10 @@ func (ae *AgentExecutor) RunAgent() error {
 	malog := logrus.WithField("component", "minimal-standalone-agent")
 	logrus.Info("Runing minimalistic test agent...")
 	runtime.GOMAXPROCS(1)
-	
+
 	cfg := ae.agent.GetContext().Config()
 
-	pluginSourceDirs := []string{
-		cfg.CustomPluginInstallationDir,
-		filepath.Join(cfg.AgentDir, "custom-integrations"),
-		filepath.Join(cfg.AgentDir, config.DefaultIntegrationsDir),
-		filepath.Join(cfg.AgentDir, "bundled-plugins"),
-		filepath.Join(cfg.AgentDir, "plugins"),
-	}
-	pluginSourceDirs = helpers.RemoveEmptyAndDuplicateEntries(pluginSourceDirs)
-	integrationCfg := v4.NewConfig(
-		cfg.Verbose,
-		cfg.Features,
-		cfg.PassthroughEnvironment,
-		cfg.PluginInstanceDirs,
-		pluginSourceDirs,
-	)
+
 	ffManager := feature_flags.NewManager(cfg.Features)
 	fatal := func(err error, message string) {
 		malog.WithError(err).Error(message)
@@ -127,9 +123,9 @@ func (ae *AgentExecutor) RunAgent() error {
 
 	// track stoppable integrations
 	tracker := track.NewTracker(dmEmitter)
-	il := newInstancesLookup(integrationCfg)
+	il := newInstancesLookup(ae.integrationCfg)
 	integrationEmitter := emitter.NewIntegrationEmittor(ae.agent, dmEmitter, ffManager)
-	integrationManager := v4.NewManager(integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
+	integrationManager := v4.NewManager(ae.integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
 
 	// Start all plugins we want the agent to run.
 	if err = plugins.RegisterPlugins(ae.agent, integrationEmitter); err != nil {
@@ -138,10 +134,6 @@ func (ae *AgentExecutor) RunAgent() error {
 	}
 	go integrationManager.Start(ae.agent.Context.Ctx)
 
-	pluginRegistry := legacy.NewPluginRegistry(pluginSourceDirs, cfg.PluginInstanceDirs)
-	if err := pluginRegistry.LoadPlugins(); err != nil {
-		fatal(err, "Can't load plugins.")
-	}
 	return ae.agent.Run()
 }
 
