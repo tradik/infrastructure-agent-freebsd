@@ -1,16 +1,35 @@
 package cfgprotocol
 
-/**
-func Test_Demo(t *testing.T) {
-	t.Log("a")
-	logrus.Info("TEXT")
-	executor := agent.New()
-	logrus.Debug("TEXT")
-	go executor.RunAgent()
+import (
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
-	//time.Sleep(30*time.Second)
-	//executor.Terminate()
-	//time.Sleep(15*time.Second)
-	time.Sleep(45*time.Second)
+	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent"
+	"github.com/sirupsen/logrus"
+)
+
+func Test_Demo(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	executor := agent.New(getIntegrationPath())
+	go executor.RunAgent()
+	for {
+		select {
+		case req := <-executor.Client().RequestCh:
+			fmt.Print(req)
+		}
+	}
+
+	time.Sleep(45 * time.Second)
 }
-**/
+
+func getIntegrationPath() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return filepath.Join(dir, "agent", "integrations.d")
+}

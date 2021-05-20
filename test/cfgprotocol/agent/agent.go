@@ -1,6 +1,6 @@
 // Copyright 2020 New Relic Corporation. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package main
+package agent
 
 import (
 	"compress/gzip"
@@ -29,14 +29,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func main() {
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.Info("TEXT")
-	executor := New("/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d")
-	logrus.Debug("TEXT")
-	go executor.RunAgent()
-	time.Sleep(20 * time.Second)
-}
+// func main() {
+// 	logrus.SetLevel(logrus.DebugLevel)
+// 	logrus.Info("TEXT")
+// 	executor := New("/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d")
+// 	logrus.Debug("TEXT")
+// 	go executor.RunAgent()
+// 	time.Sleep(20 * time.Second)
+// }
 
 var testClient = ihttp.NewRequestRecorderClient()
 
@@ -70,8 +70,8 @@ func New(integrationDir string) AgentExecutor {
 		cfg.Verbose,
 		cfg.Features,
 		cfg.PassthroughEnvironment,
-		cfg.PluginInstanceDirs,
 		[]string{integrationDir},
+		nil,
 	)
 	return AgentExecutor{
 		recordClient:   ihttp.NewRequestRecorderClient(),
@@ -92,7 +92,6 @@ func (ae *AgentExecutor) RunAgent() error {
 	runtime.GOMAXPROCS(1)
 
 	cfg := ae.agent.GetContext().Config()
-
 
 	ffManager := feature_flags.NewManager(cfg.Features)
 	fatal := func(err error, message string) {
