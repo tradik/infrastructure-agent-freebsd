@@ -1,0 +1,11 @@
+integrations:
+  - name: simple-generator
+    exec:
+      - go
+      - run
+      - testdata/go/spawner.go
+      - "-path"
+      - "testdata/scenarios/scenario3/nri-config.json"
+      - "-nri-process-name"
+      - "nri-config"
+    interval: "2s"

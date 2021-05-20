@@ -7,6 +7,9 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/executor"
@@ -16,10 +19,6 @@ import (
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/config"
 	"github.com/newrelic/infrastructure-agent/pkg/log"
 	"github.com/newrelic/infrastructure-agent/pkg/plugins/ids"
-
-	"io/ioutil"
-	"os"
-	"strings"
 )
 
 const (

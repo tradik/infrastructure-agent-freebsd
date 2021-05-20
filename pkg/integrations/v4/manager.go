@@ -256,7 +256,6 @@ func (mgr *Manager) Start(ctx context.Context) {
 	}
 
 	go mgr.handleRequestsQueue(ctx)
-
 	mgr.watchForFSChanges(ctx)
 }
 
