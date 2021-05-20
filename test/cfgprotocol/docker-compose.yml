@@ -7,7 +7,7 @@ services:
       dockerfile: test/proxy/Dockerfile_agent
     image: minimal-agent
     volumes:
-      - ./agent:/etc/newrelic-infra/in
+      - ./agent:/etc/newrelic-infra
     links:
       - http-proxy
     ports:
