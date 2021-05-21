@@ -22,6 +22,9 @@ func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
 	a.RunAgent()
 
 }
+
+
+
 func Test_Demo(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	tc, err := testcase.New(t.Log, filepath.Join(testDataDir, "scenario1"))
