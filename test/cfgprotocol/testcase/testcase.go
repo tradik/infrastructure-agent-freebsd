@@ -1,6 +1,7 @@
 package testcase
 
 import (
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,8 +16,7 @@ import (
 const tmpDirPrefix = "nr-infrastructure-agent"
 
 type TestCase interface {
-	teardown()
-	Run(timeout time.Duration, evalRequestsFn func(requests chan http.Request))
+	Run(timeout time.Duration, evalRequestsFn func(requests chan http.Request)) error
 }
 
 type testcase struct {
@@ -68,19 +68,19 @@ func (t *testcase) loadFiles(templatesPath string) error {
 	return nil
 }
 
-func (t *testcase) Run(timeout time.Duration, evalRequestsFn func(requests chan http.Request)) {
+func (t *testcase) Run(timeout time.Duration, evalRequestsFn func(requests chan http.Request)) error{
 	ch := make(chan struct{}, 1)
-
-	go func() {
-		go t.emulator.RunAgent()
+	go t.emulator.RunAgent()
+	go func(){
 		evalRequestsFn(t.emulator.Client().RequestCh)
+		ch<-struct{}{}
 	}()
-
 	select {
 	case <-ch:
 		logrus.Debugf("execution completed")
 	case <-time.After(timeout):
-		logrus.Warn("timeout exceeded!")
 		t.teardown()
+		return errors.New("timeout exedeed")
 	}
+	return nil
 }

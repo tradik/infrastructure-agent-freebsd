@@ -1,6 +1,7 @@
 package cfgprotocol
 
 import (
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/testcase"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_Demo(t *testing.T) {
@@ -16,10 +18,16 @@ func Test_Demo(t *testing.T) {
 	if err!=nil{
 		t.Fatal(err)
 	}
-	tc.Run(20*time.Second,func(requests chan http.Request){
+	err=tc.Run(20*time.Second, func(requests chan http.Request){
+
+		select {
+			case req:=<-requests:
+				fmt.Println("-----")
+				fmt.Println(req.Method)
+		}
 
 	})
-
+	assert.Nil(t, err)
 
 }
 
