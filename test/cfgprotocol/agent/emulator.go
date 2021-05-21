@@ -4,6 +4,7 @@ package agent
 
 import (
 	"compress/gzip"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/files"
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration"
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/v3legacy"
-	"github.com/newrelic/infrastructure-agent/pkg/backend/identityapi"
 	"github.com/newrelic/infrastructure-agent/pkg/config"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/configrequest"
 	"github.com/newrelic/infrastructure-agent/pkg/integrations/track"
@@ -29,32 +29,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// func main() {
-// 	logrus.SetLevel(logrus.DebugLevel)
-// 	logrus.Info("TEXT")
-// 	executor := New("/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d")
-// 	logrus.Debug("TEXT")
-// 	go executor.RunAgent()
-// 	time.Sleep(20 * time.Second)
-// }
-
-var testClient = ihttp.NewRequestRecorderClient()
 
 const timeout = 5 * time.Second
 
 type Emulator struct {
-	recordClient   *ihttp.RequestRecorderClient
+	chRequests     chan http.Request
 	agent          *agent.Agent
 	integrationCfg v4.Configuration
 }
 
-func (ae *Emulator) Client() *ihttp.RequestRecorderClient {
-	return ae.recordClient
+
+func (ae *Emulator) ChannelHTTPRequests() chan http.Request {
+	return ae.chRequests
 }
 
-func New(integrationDir string) Emulator {
+func New(integrationDir string) *Emulator {
+	rc := ihttp.NewRequestRecorderClient()
 
-	agent := infra.NewAgent(testClient.Client, func(config *config.Config) {
+	agent := infra.NewAgent(rc.Client, func(config *config.Config) {
 		config.DisplayName = "my_display_name"
 		config.License = "abcdef012345"
 		config.PayloadCompressionLevel = gzip.NoCompression
@@ -63,8 +55,16 @@ func New(integrationDir string) Emulator {
 		config.LogFormat = "text"
 		config.LogToStdout = true
 		config.Debug = true
+		config.RegisterEnabled = false
+		config.HeartBeatSampleRate=15
 	})
+
+	//sender := metrics_sender.NewSender(agent.Context)
+	//sender.RegisterSampler(&minagent.FakeSampler{})
+	//agent.RegisterMetricsSender(sender)
 	cfg := agent.Context.Config()
+	caa:=agent.GetContext()
+	fmt.Println(caa.Context())
 
 	integrationCfg := v4.NewConfig(
 		cfg.Verbose,
@@ -73,8 +73,9 @@ func New(integrationDir string) Emulator {
 		[]string{integrationDir},
 		nil,
 	)
-	return Emulator{
-		recordClient:   ihttp.NewRequestRecorderClient(),
+
+	return &Emulator{
+		chRequests:     rc.RequestCh,
 		agent:          agent,
 		integrationCfg: integrationCfg,
 	}
@@ -91,6 +92,12 @@ func (ae *Emulator) RunAgent() error {
 	logrus.Info("Runing minimalistic test agent...")
 	runtime.GOMAXPROCS(1)
 
+
+	//sender := metrics_sender.NewSender(ae.agent.GetContext())
+	//heartBeatSampler := metrics.NewHeartbeatSampler(ae.agent.Context)
+	//sender.RegisterSampler(heartBeatSampler)
+	//ae.agent.RegisterMetricsSender(sender)
+
 	cfg := ae.agent.GetContext().Config()
 
 	ffManager := feature_flags.NewManager(cfg.Features)
@@ -102,11 +109,13 @@ func (ae *Emulator) RunAgent() error {
 	if err := initialize.AgentService(cfg); err != nil {
 		fatal(err, "Can't complete platform specific initialization.")
 	}
+
 	metricsSenderConfig := dm.NewConfig(cfg.MetricURL, cfg.License, time.Duration(cfg.DMSubmissionPeriod)*time.Second, cfg.MaxMetricBatchEntitiesCount, cfg.MaxMetricBatchEntitiesQueue)
 	dmSender, err := dm.NewDMSender(metricsSenderConfig, http.DefaultTransport, ae.agent.Context.IdContext().AgentIdentity)
 	if err != nil {
 		return err
 	}
+
 
 	// queues integration run requests
 	definitionQ := make(chan integration.Definition, 100)
@@ -114,8 +123,9 @@ func (ae *Emulator) RunAgent() error {
 	configEntryQ := make(chan configrequest.Entry, 100)
 	// queues integration terminated definitions
 	terminateDefinitionQ := make(chan string, 100)
-	var registerClient identityapi.RegisterClient
-	emitterWithRegister := dm.NewEmitter(ae.agent.GetContext(), dmSender, registerClient)
+
+
+	emitterWithRegister := dm.NewEmitter(ae.agent.GetContext(), dmSender, nil)
 	nonRegisterEmitter := dm.NewNonRegisterEmitter(ae.agent.GetContext(), dmSender)
 
 	dmEmitter := dm.NewEmitterWithFF(emitterWithRegister, nonRegisterEmitter, ffManager)
@@ -124,6 +134,7 @@ func (ae *Emulator) RunAgent() error {
 	tracker := track.NewTracker(dmEmitter)
 	il := newInstancesLookup(ae.integrationCfg)
 	integrationEmitter := emitter.NewIntegrationEmittor(ae.agent, dmEmitter, ffManager)
+
 	integrationManager := v4.NewManager(ae.integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
 
 	// Start all plugins we want the agent to run.

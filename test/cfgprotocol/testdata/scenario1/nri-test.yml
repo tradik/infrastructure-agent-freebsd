@@ -3,5 +3,4 @@ integrations:
     exec:
       - /bin/cat
       - {{.baseDir}}/cfgprotocol.json
-    interval: 15
-    timeout: 0
+    interval: 0

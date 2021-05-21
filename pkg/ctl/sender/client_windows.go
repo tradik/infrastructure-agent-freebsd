@@ -10,7 +10,7 @@ import (
 	"github.com/newrelic/infrastructure-agent/pkg/log"
 )
 
-var wlog = log.WithComponent("Windows Client")
+var wlog = log.WithComponent("Windows ChannelHTTPRequests")
 
 // windows named pipe based agent control client.
 type windowsClient struct {

@@ -4,29 +4,13 @@ package main
 
 import (
 	"compress/gzip"
-	"net/http"
-	"os"
-	"path/filepath"
+	"flag"
 	"runtime"
-	"time"
 
-	"github.com/newrelic/infrastructure-agent/cmd/newrelic-infra/initialize"
-	"github.com/newrelic/infrastructure-agent/internal/feature_flags"
-	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/files"
-	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration"
-	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/v3legacy"
-	"github.com/newrelic/infrastructure-agent/pkg/backend/identityapi"
 	"github.com/newrelic/infrastructure-agent/pkg/config"
-	"github.com/newrelic/infrastructure-agent/pkg/helpers"
-	"github.com/newrelic/infrastructure-agent/pkg/integrations/configrequest"
-	"github.com/newrelic/infrastructure-agent/pkg/integrations/legacy"
-	"github.com/newrelic/infrastructure-agent/pkg/integrations/track"
-	v4 "github.com/newrelic/infrastructure-agent/pkg/integrations/v4"
-	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/dm"
-	"github.com/newrelic/infrastructure-agent/pkg/integrations/v4/emitter"
-	"github.com/newrelic/infrastructure-agent/pkg/plugins"
+	metrics_sender "github.com/newrelic/infrastructure-agent/pkg/metrics/sender"
 	"github.com/newrelic/infrastructure-agent/test/infra"
-	ihttp "github.com/newrelic/infrastructure-agent/test/infra/http"
+	"github.com/newrelic/infrastructure-agent/test/proxy/minagent"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,104 +18,29 @@ import (
 // It just submits `FakeSample` instances to the collector.
 func main() {
 	malog := logrus.WithField("component", "minimal-standalone-agent")
+
 	logrus.Info("Runing minimalistic test agent...")
 	runtime.GOMAXPROCS(1)
-	initializeAgentAndRun(malog)
-}
 
-func initializeAgentAndRun(malog *logrus.Entry) error {
+	configFile := flag.String("config", minagent.DefaultConfig, "configuration file")
+	flag.Parse()
 
-	const timeout = 5 * time.Second
-
-	testClient := ihttp.NewRequestRecorderClient()
-	agt := infra.NewAgent(testClient.Client, func(config *config.Config) {
-		config.DisplayName = "my_display_name"
-		config.License = "abcdef012345"
-		config.PayloadCompressionLevel = gzip.NoCompression
-		config.Verbose = 1
-		config.PluginDir = "/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d"
-		config.LogFormat = "text"
-		config.LogToStdout = true
-		config.Debug = true
-	})
-
-	cfg := agt.GetContext().Config()
-
-	pluginSourceDirs := []string{
-		cfg.CustomPluginInstallationDir,
-		filepath.Join(cfg.AgentDir, "custom-integrations"),
-		filepath.Join(cfg.AgentDir, config.DefaultIntegrationsDir),
-		filepath.Join(cfg.AgentDir, "bundled-plugins"),
-		filepath.Join(cfg.AgentDir, "plugins"),
-	}
-	pluginSourceDirs = helpers.RemoveEmptyAndDuplicateEntries(pluginSourceDirs)
-	integrationCfg := v4.NewConfig(
-		cfg.Verbose,
-		cfg.Features,
-		cfg.PassthroughEnvironment,
-		cfg.PluginInstanceDirs,
-		pluginSourceDirs,
-	)
-	ffManager := feature_flags.NewManager(cfg.Features)
-	fatal := func(err error, message string) {
-		malog.WithError(err).Error(message)
-		os.Exit(1)
-	}
-	defer agt.Terminate()
-	if err := initialize.AgentService(cfg); err != nil {
-		fatal(err, "Can't complete platform specific initialization.")
-	}
-	metricsSenderConfig := dm.NewConfig(cfg.MetricURL, cfg.License, time.Duration(cfg.DMSubmissionPeriod)*time.Second, cfg.MaxMetricBatchEntitiesCount, cfg.MaxMetricBatchEntitiesQueue)
-	dmSender, err := dm.NewDMSender(metricsSenderConfig, http.DefaultTransport, agt.Context.IdContext().AgentIdentity)
+	cfg, err := config.LoadConfig(*configFile)
 	if err != nil {
-		return err
+		malog.WithError(err).Fatal("can't load configuration file")
 	}
 
-	// queues integration run requests
-	definitionQ := make(chan integration.Definition, 100)
-	// queues config entries requests
-	configEntryQ := make(chan configrequest.Entry, 100)
-	// queues integration terminated definitions
-	terminateDefinitionQ := make(chan string, 100)
-	var registerClient identityapi.RegisterClient
-	emitterWithRegister := dm.NewEmitter(agt.GetContext(), dmSender, registerClient)
-	nonRegisterEmitter := dm.NewNonRegisterEmitter(agt.GetContext(), dmSender)
-
-	dmEmitter := dm.NewEmitterWithFF(emitterWithRegister, nonRegisterEmitter, ffManager)
-
-	// track stoppable integrations
-	tracker := track.NewTracker(dmEmitter)
-	il := newInstancesLookup(integrationCfg)
-	integrationEmitter := emitter.NewIntegrationEmittor(agt, dmEmitter, ffManager)
-	integrationManager := v4.NewManager(integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
-
-	// Start all plugins we want the agent to run.
-	if err = plugins.RegisterPlugins(agt, integrationEmitter); err != nil {
-		malog.WithError(err).Error("fatal error while registering plugins")
-		os.Exit(1)
+	if cfg.CABundleFile == "" && cfg.CABundleDir == "" {
+		cfg.CABundleDir = "/cabundle"
 	}
-	go integrationManager.Start(agt.Context.Ctx)
-	pluginRegistry := legacy.NewPluginRegistry(pluginSourceDirs, cfg.PluginInstanceDirs)
-	if err := pluginRegistry.LoadPlugins(); err != nil {
-		fatal(err, "Can't load plugins.")
-	}
-	return agt.Run()
-}
+	cfg.PayloadCompressionLevel = gzip.NoCompression
 
-func newInstancesLookup(cfg v4.Configuration) integration.InstancesLookup {
-	const executablesSubFolder = "bin"
+	a := infra.NewAgentFromConfig(cfg)
+	sender := metrics_sender.NewSender(a.Context)
+	sender.RegisterSampler(&minagent.FakeSampler{})
+	a.RegisterMetricsSender(sender)
 
-	var execFolders []string
-	for _, df := range cfg.DefinitionFolders {
-		execFolders = append(execFolders, df)
-		execFolders = append(execFolders, filepath.Join(df, executablesSubFolder))
-	}
-	legacyDefinedCommands := v3legacy.NewDefinitionsRepo(v3legacy.LegacyConfig{
-		DefinitionFolders: cfg.DefinitionFolders,
-		Verbose:           cfg.Verbose,
-	})
-	return integration.InstancesLookup{
-		Legacy: legacyDefinedCommands.NewDefinitionCommand,
-		ByName: files.Executables{Folders: execFolders}.Path,
+	if err := a.Run(); err != nil {
+		malog.WithError(err).Error("while starting agent")
 	}
 }

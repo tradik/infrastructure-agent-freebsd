@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent"
-	"github.com/sirupsen/logrus"
 )
 
 const tmpDirPrefix = "nr-infrastructure-agent"
@@ -20,13 +19,16 @@ type TestCase interface {
 }
 
 type testcase struct {
-	emulator agent.Emulator
+	emulator *agent.Emulator
 	baseDir  string
 	vars     map[string]interface{}
+	log      func(args ...interface{})
 }
 
-func New(templatesPath string) (TestCase, error) {
-	testcase := &testcase{}
+func New(log func(args ...interface{}), templatesPath string) (TestCase, error) {
+	testcase := &testcase{
+		log: log,
+	}
 	if err := testcase.setUp(); err != nil {
 		return nil, err
 	}
@@ -48,9 +50,9 @@ func (t *testcase) setUp() error {
 }
 
 func (t *testcase) teardown() {
-	logrus.Info("terminate the agent execution")
+	t.log("terminate the agent execution")
 	t.emulator.Terminate()
-	logrus.Infof("remove temporal directory %s", t.baseDir)
+	t.log("remove temporal directory %s", t.baseDir)
 	os.Remove(t.baseDir)
 
 }
@@ -68,16 +70,16 @@ func (t *testcase) loadFiles(templatesPath string) error {
 	return nil
 }
 
-func (t *testcase) Run(timeout time.Duration, evalRequestsFn func(requests chan http.Request)) error{
+func (t *testcase) Run(timeout time.Duration, evalRequestsFn func(requests chan http.Request)) error {
 	ch := make(chan struct{}, 1)
 	go t.emulator.RunAgent()
-	go func(){
-		evalRequestsFn(t.emulator.Client().RequestCh)
-		ch<-struct{}{}
+	go func() {
+		evalRequestsFn(t.emulator.ChannelHTTPRequests())
+		ch <- struct{}{}
 	}()
 	select {
 	case <-ch:
-		logrus.Debugf("execution completed")
+		t.log("execution completed")
 	case <-time.After(timeout):
 		t.teardown()
 		return errors.New("timeout exedeed")

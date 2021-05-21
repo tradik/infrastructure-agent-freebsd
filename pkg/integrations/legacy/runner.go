@@ -685,7 +685,7 @@ func replaceLoopbackFromField(field interface{}, lookup host.IDLookup, protocol 
 	}
 	return entity.ReplaceLoopback(value, lookup, protocol)
 }
-
+// TODO
 func EmitDataSet(
 	ctx agent.AgentContext,
 	emitter agent.PluginEmitter,
