@@ -19,11 +19,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testDataDir ="testdata"
+const (
+	testDataDir = "testdata"
+	timeout     = 15 * time.Second
+)
+
+var integrationsDir = filepath.Join(testDataDir, "integrations")
 
 func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	// GIVEN a set of configuration files
+	generator := "generator1.go"
+	integration := "integration1.go"
 	dir, err := tempFiles(map[string]string{
 		"parent-integration.yml": `
 ---
@@ -32,23 +38,117 @@ integrations:
     exec:
       - go
       - run
-      - testdata/integrations/generator1.go
-    interval: 16
+      - ` + filepath.Join(integrationsDir, generator) + `
+    interval: 15
 `,
 	})
 	require.NoError(t, err)
+
 	a := agent.New(dir)
+
 	go a.RunAgent()
+	defer a.Terminate()
+
+	// integrations process are spawned
 	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		_, err := findProcessByCmd("generator1.go")
+		_, err := findProcessByCmd(integration)
+		require.NoError(rt, err)
+	})
+	var body string
+	select {
+	case req := <-a.ChannelHTTPRequests():
+		bodyBuffer, _ := ioutil.ReadAll(req.Body)
+		body = string(bodyBuffer)
+	case <-time.After(timeout):
+		assert.FailNow(t, "timeout while waiting for a response")
+	}
+	assert.Contains(t, body, "ShellTestSample")
+	removeTempFiles(t, dir)
+	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
+		p, _ := findProcessByCmd(integration)
+		assert.Nil(rt, p)
+		p, _ = findProcessByCmd(generator)
+		assert.Nil(rt, p)
+	})
+}
+func Test_MultipleConfigNames(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	generator := "generator2.go"
+	integration := "integration1.go"
+	dir, err := tempFiles(map[string]string{
+		"parent-integration.yml": `
+---
+integrations:
+  - name: nri-cfg-protocol
+    exec:
+      - go
+      - run
+      - ` + filepath.Join(integrationsDir, generator) + `
+    interval: 15
+`,
+	})
+	require.NoError(t, err)
+
+	a := agent.New(dir)
+
+	go a.RunAgent()
+	defer a.Terminate()
+
+	// integrations process are spawned
+	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
+		_, err := findProcessByCmd(integration)
 		require.NoError(rt, err)
 	})
 	removeTempFiles(t, dir)
-	time.Sleep(1 * time.Second)
-	p, _ := findProcessByCmd("generator1.go")
-	assert.Nil(t, p)
-
+	time.Sleep(10 * time.Minute)
+	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
+		p, _ := findProcessByCmd(integration)
+		require.Nil(rt, p)
+		p, _ = findProcessByCmd(generator)
+		require.Nil(rt, p)
+	})
 }
+
+func Test_IntegrationIsRelauchedIfTerminated(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	generator := "generator1.go"
+	integration := "integration1.go"
+	dir, err := tempFiles(map[string]string{
+		"parent-integration.yml": `
+---
+integrations:
+  - name: nri-cfg-protocol
+    exec:
+      - go
+      - run
+      - ` + filepath.Join(integrationsDir, generator) + `
+    interval: 15
+`,
+	})
+	require.NoError(t, err)
+
+	a := agent.New(dir)
+
+	go a.RunAgent()
+	defer a.Terminate()
+
+	// integrations process are spawned
+	p := &process.Process{}
+	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
+		p, err = findProcessByCmd(integration)
+		require.NoError(rt, err)
+	})
+	pidOld := p.Pid
+	err = p.Kill()
+	time.Sleep(10 * time.Second)
+	newP := &process.Process{}
+	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
+		newP, err = findProcessByCmd(integration)
+		require.NoError(rt, err)
+	})
+	assert.NotEqual(t, newP.Pid, pidOld)
+}
+
 func findProcessByCmd(cmd string) (*process.Process, error) {
 	ps, _ := process.Processes()
 	for _, p := range ps {
@@ -79,10 +179,9 @@ func removeTempFiles(t *testing.T, dir string) {
 	}()
 }
 
-
 func Test_Demo(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
-	tc, err := testcase.New(t.Log, filepath.Join(testDataDir, "scenario1"))
+	tc, err := testcase.New(t.Log, filepath.Join(testDataDir, "demo"))
 	if err != nil {
 		t.Fatal(err)
 	}
