@@ -40,8 +40,8 @@ func main() {
 }`
 	payload = strings.ReplaceAll(payload, "\n", "")
 
-	// for {
-	fmt.Println(payload)
-	time.Sleep(time.Second)
-	// }
+	for {
+		fmt.Println(payload)
+		time.Sleep(time.Second)
+	}
 }

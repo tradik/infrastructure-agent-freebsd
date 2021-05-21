@@ -1,7 +1,0 @@
-integrations:
-  - name: nri-cfg-protocol
-    exec:
-      - go
-      - run
-      - testdata/integrations/generator1.go
-    interval: 16

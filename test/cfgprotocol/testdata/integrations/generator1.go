@@ -23,7 +23,7 @@ func main() {
     "exec": [
       "go",
       "run",
-      "/Users/gsanchez/go/src/github.com/newrelic/infrastructure-agent/test/cfgprotocol/testdata/integrations/integration1.go"
+      "testdata/integrations/integration1.go"
     ],
     "interval": "15s",
     "env": {
