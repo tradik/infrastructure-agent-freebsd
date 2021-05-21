@@ -29,17 +29,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// func main() {
-// 	logrus.SetLevel(logrus.DebugLevel)
-// 	logrus.Info("TEXT")
-// 	executor := New("/Users/icorrales/Repositories/github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent/integrations.d")
-// 	logrus.Debug("TEXT")
-// 	go executor.RunAgent()
-// 	time.Sleep(20 * time.Second)
-// }
-
-var testClient = ihttp.NewRequestRecorderClient()
-
 const timeout = 5 * time.Second
 
 type Emulator struct {
@@ -53,7 +42,7 @@ func (ae *Emulator) Client() *ihttp.RequestRecorderClient {
 }
 
 func New(integrationDir string) Emulator {
-
+	var testClient = ihttp.NewRequestRecorderClient()
 	agent := infra.NewAgent(testClient.Client, func(config *config.Config) {
 		config.DisplayName = "my_display_name"
 		config.License = "abcdef012345"
@@ -74,7 +63,7 @@ func New(integrationDir string) Emulator {
 		nil,
 	)
 	return Emulator{
-		recordClient:   ihttp.NewRequestRecorderClient(),
+		recordClient:   testClient,
 		agent:          agent,
 		integrationCfg: integrationCfg,
 	}
