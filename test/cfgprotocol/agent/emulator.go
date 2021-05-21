@@ -42,17 +42,17 @@ var testClient = ihttp.NewRequestRecorderClient()
 
 const timeout = 5 * time.Second
 
-type AgentExecutor struct {
+type Emulator struct {
 	recordClient   *ihttp.RequestRecorderClient
 	agent          *agent.Agent
 	integrationCfg v4.Configuration
 }
 
-func (ae *AgentExecutor) Client() *ihttp.RequestRecorderClient {
+func (ae *Emulator) Client() *ihttp.RequestRecorderClient {
 	return ae.recordClient
 }
 
-func New(integrationDir string) AgentExecutor {
+func New(integrationDir string) Emulator {
 
 	agent := infra.NewAgent(testClient.Client, func(config *config.Config) {
 		config.DisplayName = "my_display_name"
@@ -73,20 +73,20 @@ func New(integrationDir string) AgentExecutor {
 		[]string{integrationDir},
 		nil,
 	)
-	return AgentExecutor{
+	return Emulator{
 		recordClient:   ihttp.NewRequestRecorderClient(),
 		agent:          agent,
 		integrationCfg: integrationCfg,
 	}
 }
 
-func (ae *AgentExecutor) Terminate() {
+func (ae *Emulator) Terminate() {
 	ae.agent.Terminate()
 }
 
 // minimalist agent. It loads the configuration from the environment and the file passed by the -config flag.
 // It just submits `FakeSample` instances to the collector.
-func (ae *AgentExecutor) RunAgent() error {
+func (ae *Emulator) RunAgent() error {
 	malog := logrus.WithField("component", "minimal-standalone-agent")
 	logrus.Info("Runing minimalistic test agent...")
 	runtime.GOMAXPROCS(1)
