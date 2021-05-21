@@ -8,13 +8,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent"
 	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/testcase"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
-const testDataDir = "testdata"
+const testDataDir ="testdata"
 
+func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	a := agent.New(filepath.Join(testDataDir, "scenario1"))
+	a.RunAgent()
+
+}
 func Test_Demo(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	tc, err := testcase.New(t.Log, filepath.Join(testDataDir, "scenario1"))

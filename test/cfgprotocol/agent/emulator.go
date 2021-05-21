@@ -4,7 +4,6 @@ package agent
 
 import (
 	"compress/gzip"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -58,13 +57,7 @@ func New(integrationDir string) *Emulator {
 		config.RegisterEnabled = false
 		config.HeartBeatSampleRate=15
 	})
-
-	//sender := metrics_sender.NewSender(agent.Context)
-	//sender.RegisterSampler(&minagent.FakeSampler{})
-	//agent.RegisterMetricsSender(sender)
 	cfg := agent.Context.Config()
-	caa:=agent.GetContext()
-	fmt.Println(caa.Context())
 
 	integrationCfg := v4.NewConfig(
 		cfg.Verbose,
@@ -92,12 +85,6 @@ func (ae *Emulator) RunAgent() error {
 	logrus.Info("Runing minimalistic test agent...")
 	runtime.GOMAXPROCS(1)
 
-
-	//sender := metrics_sender.NewSender(ae.agent.GetContext())
-	//heartBeatSampler := metrics.NewHeartbeatSampler(ae.agent.Context)
-	//sender.RegisterSampler(heartBeatSampler)
-	//ae.agent.RegisterMetricsSender(sender)
-
 	cfg := ae.agent.GetContext().Config()
 
 	ffManager := feature_flags.NewManager(cfg.Features)
@@ -109,13 +96,11 @@ func (ae *Emulator) RunAgent() error {
 	if err := initialize.AgentService(cfg); err != nil {
 		fatal(err, "Can't complete platform specific initialization.")
 	}
-
 	metricsSenderConfig := dm.NewConfig(cfg.MetricURL, cfg.License, time.Duration(cfg.DMSubmissionPeriod)*time.Second, cfg.MaxMetricBatchEntitiesCount, cfg.MaxMetricBatchEntitiesQueue)
 	dmSender, err := dm.NewDMSender(metricsSenderConfig, http.DefaultTransport, ae.agent.Context.IdContext().AgentIdentity)
 	if err != nil {
 		return err
 	}
-
 
 	// queues integration run requests
 	definitionQ := make(chan integration.Definition, 100)
@@ -134,7 +119,6 @@ func (ae *Emulator) RunAgent() error {
 	tracker := track.NewTracker(dmEmitter)
 	il := newInstancesLookup(ae.integrationCfg)
 	integrationEmitter := emitter.NewIntegrationEmittor(ae.agent, dmEmitter, ffManager)
-
 	integrationManager := v4.NewManager(ae.integrationCfg, integrationEmitter, il, definitionQ, terminateDefinitionQ, configEntryQ, tracker)
 
 	// Start all plugins we want the agent to run.
