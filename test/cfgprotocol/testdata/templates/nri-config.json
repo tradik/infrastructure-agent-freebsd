@@ -6,6 +6,9 @@
     "integrations": [
       {
         "name": "nri-test",
+        "labels": {
+          "timestamp": "{{.timestamp}}"
+        },
         "exec": [
           "go",
           "run",
@@ -14,7 +17,10 @@
           "testdata/scenarios/shared/nri-out.json",
           "-singleLine",
           "-forever"
-        ]
+        ],
+        "env": {
+          "timestamp": "{{.timestamp}}"
+        }
       }
     ]
   }

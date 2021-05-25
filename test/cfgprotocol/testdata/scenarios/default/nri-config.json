@@ -14,10 +14,7 @@
           "testdata/scenarios/shared/nri-out.json",
           "-singleLine"
         ],
-        "interval": "15s",
-        "env": {
-          "PORT": "3306"
-        }
+        "interval": "15s"
       }
     ]
   }

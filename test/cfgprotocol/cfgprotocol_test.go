@@ -70,18 +70,6 @@ func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
 func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 	a := createAgentAndStart(t, "scenario1")
 	defer a.Terminate()
-
-	/**
-	go func(){
-		for{
-			select {
-			case req := <-a.ChannelHTTPRequests():
-				bodyBuffer, _ := ioutil.ReadAll(req.Body)
-				fmt.Println(string(bodyBuffer))
-			}
-		}
-	}()
-	**/
 	// and just one integrations process is running
 	var p []*process.Process
 	var err error
@@ -90,7 +78,7 @@ func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 		assert.NoError(rt, err)
 		assert.Len(rt, p, 1)
 	})
-
+	go traceRequests(a.ChannelHTTPRequests())
 	// if the integration exits with error code
 	oldPid := p[0].Pid
 	assert.NoError(t, p[0].Kill())
@@ -103,5 +91,65 @@ func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 		}
 	})
 	assert.NotEqual(t, oldPid, p[0].Pid)
+}
 
+func Test_IntegrationIsRelaunchedIfOneIntegrationIsModified(t *testing.T) {
+	a := createAgentAndStart(t, "scenario2")
+	defer a.Terminate()
+	// and just one integrations process is running
+	var p []*process.Process
+	var err error
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, p, 1)
+	})
+	go traceRequests(a.ChannelHTTPRequests())
+	// if the integration exits with error code
+	oldPid := p[0].Pid
+	assert.NoError(t, p[0].Kill())
+	// is eventually spawned again by the runner
+	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
+		p, err = findAllProcessByCmd(defNriOutExecution)
+		assert.NoError(rt, err)
+		if !assert.Len(rt, p, 1){
+			return
+		}
+	})
+	assert.NotEqual(t, oldPid, p[0].Pid)
+}
+
+
+
+
+func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
+	assert.Nil(t, createFile(filepath.Join("testdata", "templates", "nri-config.json"), filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json"), map[string]interface{}{
+		"timestamp": time.Now(),
+	}))
+	a := createAgentAndStart(t, "scenario2")
+	defer a.Terminate()
+	// and just one integrations process is running
+	var p []*process.Process
+	var err error
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, p, 1)
+	})
+	go traceRequests(a.ChannelHTTPRequests())
+	// if the integration exits with error code
+	oldPid := p[0].Pid
+	assert.Nil(t, createFile(filepath.Join("testdata", "templates", "nri-config.json"), filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json"), map[string]interface{}{
+		"timestamp": time.Now(),
+	}))
+	time.Sleep(40*time.Second)
+	// is eventually spawned again by the runner
+	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
+		p, err = findAllProcessByCmd(defNriOutExecution)
+		assert.NoError(rt, err)
+		if !assert.Len(rt, p, 1) {
+			return
+		}
+	})
+	assert.NotEqual(t, oldPid, p[0].Pid)
 }

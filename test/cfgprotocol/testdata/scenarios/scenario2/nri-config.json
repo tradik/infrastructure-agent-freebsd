@@ -6,6 +6,9 @@
     "integrations": [
       {
         "name": "nri-test",
+        "labels": {
+          "timestamp": "2021-05-25 12:51:38.475193 +0200 CEST m=+0.592095882"
+        },
         "exec": [
           "go",
           "run",
@@ -14,7 +17,10 @@
           "testdata/scenarios/shared/nri-out.json",
           "-singleLine",
           "-forever"
-        ]
+        ],
+        "env": {
+          "timestamp": "2021-05-25 12:51:38.475193 +0200 CEST m=+0.592095882"
+        }
       }
     ]
   }

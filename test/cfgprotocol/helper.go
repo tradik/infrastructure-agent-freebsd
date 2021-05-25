@@ -4,11 +4,14 @@ package cfgprotocol
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"text/template"
 
 	"github.com/shirou/gopsutil/process"
 	"github.com/stretchr/testify/assert"
@@ -87,4 +90,27 @@ func assertMetrics(t *testing.T, expectedStr, actual string, ignoredEventAttribu
 	json.Unmarshal([]byte(expectedStr), &expected)
 
 	assert.Equal(t, expected, v)
+}
+
+func traceRequests(ch chan http.Request) {
+	for {
+		select {
+		case req := <-ch:
+			bodyBuffer, _ := ioutil.ReadAll(req.Body)
+			fmt.Println(string(bodyBuffer))
+		}
+	}
+}
+
+func createFile(from, dest string, vars map[string]interface{}) error {
+	outputFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	t, err := template.ParseFiles(from)
+	if err != nil {
+		return err
+
+	}
+	return t.Execute(outputFile, vars)
 }
