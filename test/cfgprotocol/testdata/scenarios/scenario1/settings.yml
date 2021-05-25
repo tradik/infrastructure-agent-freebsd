@@ -1,0 +1,10 @@
+integrations:
+  - name: nri-config
+    exec:
+      - go
+      - run
+      - testdata/go/printer.go
+      - "-path"
+      - "testdata/scenarios/scenario1/nri-config.json"
+      - "-singleLine"
+    interval: 5
