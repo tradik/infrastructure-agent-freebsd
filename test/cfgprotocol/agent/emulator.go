@@ -54,8 +54,7 @@ func New(configsDir string) *Emulator {
 		config.RegisterEnabled = false
 		config.HeartBeatSampleRate = 15
 		config.Features = map[string]bool{
-			fflag.FlagProtocolV4:       true,
-			fflag.FlagDMRegisterEnable: true,
+			fflag.FlagProtocolV4: true,
 		}
 	})
 	cfg := agent.Context.Config()

@@ -3,6 +3,7 @@
 package cfgprotocol
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -11,13 +12,14 @@ import (
 	"github.com/newrelic/infrastructure-agent/internal/testhelpers"
 	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent"
 	"github.com/shirou/gopsutil/process"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	timeout      = 15 * time.Second
-	metricNRIOut = `[{
+	timeout        = 15 * time.Second
+	metricNRIOutV3 = `[{
 			"ExternalKeys":["shell-test:some-entity"],
 			"IsAgent":false,
 			"Events":[
@@ -28,6 +30,12 @@ const (
 				}
 			]
 		}]`
+	metricNRIOutV4 = `[{
+			"ExternalKeys": ["uniqueName"],
+			"IsAgent": false,
+			"Events": [{"attr.format": "attribute","attributes": {"format": "attribute"},"category": "notifications","entityKey": "uniqueName",
+					"eventType": "InfrastructureEvent","format": "event","summary": "foo"}]
+			}]`
 	defNriOutExecution     = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine"
 	defNriOutLongExecution = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine -forever"
 )
@@ -45,6 +53,22 @@ func createAgentAndStart(t *testing.T, scenario string) *agent.Emulator {
 	return a
 }
 
+func Test_OneIntegrationIsExecutedV4(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	a := createAgentAndStart(t, "v4_payload")
+	defer a.Terminate()
+
+	// the agent sends samples from the integration
+	select {
+	case req := <-a.ChannelHTTPRequests():
+		bodyBuffer, _ := ioutil.ReadAll(req.Body)
+		fmt.Println(string(bodyBuffer))
+		assertMetrics(t, metricNRIOutV4, string(bodyBuffer), []string{"timestamp"})
+	case <-time.After(timeout):
+		assert.FailNow(t, "timeout while waiting for a response")
+		return
+	}
+}
 func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
 	a := createAgentAndStart(t, "default")
 	defer a.Terminate()
@@ -53,7 +77,7 @@ func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
 	select {
 	case req := <-a.ChannelHTTPRequests():
 		bodyBuffer, _ := ioutil.ReadAll(req.Body)
-		assertMetrics(t, metricNRIOut, string(bodyBuffer), []string{"timestamp"})
+		assertMetrics(t, metricNRIOutV3, string(bodyBuffer), []string{"timestamp"})
 	case <-time.After(timeout):
 		assert.FailNow(t, "timeout while waiting for a response")
 		return
