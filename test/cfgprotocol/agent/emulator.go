@@ -12,6 +12,7 @@ import (
 
 	"github.com/newrelic/infrastructure-agent/cmd/newrelic-infra/initialize"
 	"github.com/newrelic/infrastructure-agent/internal/agent"
+	"github.com/newrelic/infrastructure-agent/internal/agent/cmdchannel/fflag"
 	"github.com/newrelic/infrastructure-agent/internal/feature_flags"
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/files"
 	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration"
@@ -28,21 +29,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-
-const timeout = 5 * time.Second
-
 type Emulator struct {
 	chRequests     chan http.Request
 	agent          *agent.Agent
 	integrationCfg v4.Configuration
 }
 
-
 func (ae *Emulator) ChannelHTTPRequests() chan http.Request {
 	return ae.chRequests
 }
 
-func New(integrationDir string) *Emulator {
+func New(configsDir string) *Emulator {
 	rc := ihttp.NewRequestRecorderClient()
 
 	agent := infra.NewAgent(rc.Client, func(config *config.Config) {
@@ -50,12 +47,17 @@ func New(integrationDir string) *Emulator {
 		config.License = "abcdef012345"
 		config.PayloadCompressionLevel = gzip.NoCompression
 		config.Verbose = 1
-		config.PluginDir = integrationDir
+		config.PluginDir = configsDir
 		config.LogFormat = "text"
 		config.LogToStdout = true
 		config.Debug = true
 		config.RegisterEnabled = false
-		config.HeartBeatSampleRate=15
+		config.HeartBeatSampleRate = 15
+		config.Features = map[string]bool{
+			fflag.FlagProtocolV4:       true,
+			fflag.FlagDMRegisterEnable: true,
+		}
+
 	})
 	cfg := agent.Context.Config()
 
@@ -63,7 +65,7 @@ func New(integrationDir string) *Emulator {
 		cfg.Verbose,
 		cfg.Features,
 		cfg.PassthroughEnvironment,
-		[]string{integrationDir},
+		[]string{configsDir},
 		nil,
 	)
 
@@ -76,10 +78,9 @@ func New(integrationDir string) *Emulator {
 
 func (ae *Emulator) Terminate() {
 	ae.agent.Terminate()
+	// TODO remove store data folder
 }
 
-// minimalist agent. It loads the configuration from the environment and the file passed by the -config flag.
-// It just submits `FakeSample` instances to the collector.
 func (ae *Emulator) RunAgent() error {
 	malog := logrus.WithField("component", "minimal-standalone-agent")
 	logrus.Info("Runing minimalistic test agent...")
@@ -109,7 +110,6 @@ func (ae *Emulator) RunAgent() error {
 	// queues integration terminated definitions
 	terminateDefinitionQ := make(chan string, 100)
 
-
 	emitterWithRegister := dm.NewEmitter(ae.agent.GetContext(), dmSender, nil)
 	nonRegisterEmitter := dm.NewNonRegisterEmitter(ae.agent.GetContext(), dmSender)
 
@@ -127,8 +127,8 @@ func (ae *Emulator) RunAgent() error {
 		os.Exit(1)
 	}
 	go integrationManager.Start(ae.agent.Context.Ctx)
-
-	return ae.agent.Run()
+	go ae.agent.Run()
+	return nil
 }
 
 func newInstancesLookup(cfg v4.Configuration) integration.InstancesLookup {

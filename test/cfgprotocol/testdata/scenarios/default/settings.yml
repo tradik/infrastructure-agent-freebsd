@@ -5,5 +5,5 @@ integrations:
       - run
       - testdata/go/spawner.go
       - "-path"
-      - "testdata/scenarios/scenario1/nri-config.json"
+      - "testdata/scenarios/default/nri-config.json"
       - "-singleLine"

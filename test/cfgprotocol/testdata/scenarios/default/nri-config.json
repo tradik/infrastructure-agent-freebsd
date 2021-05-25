@@ -12,9 +12,9 @@
           "testdata/go/spawner.go",
           "-path",
           "testdata/scenarios/shared/nri-out.json",
-          "-singleLine",
-          "-forever"
+          "-singleLine"
         ],
+        "interval": "15s",
         "env": {
           "PORT": "3306"
         }

@@ -1,178 +1,107 @@
+// Copyright 2020 New Relic Corporation. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 package cfgprotocol
 
 import (
-	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/newrelic/infrastructure-agent/internal/testhelpers"
 	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent"
 	"github.com/shirou/gopsutil/process"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	testDataDir = "testdata"
-	timeout     = 15 * time.Second
+	timeout      = 15 * time.Second
+	metricNRIOut = `[{
+			"ExternalKeys":["shell-test:some-entity"],
+			"IsAgent":false,
+			"Events":[
+				{
+					"displayName":"shell-test:some-entity","entityKey":"shell-test:some-entity","entityName":"shell-test:some-entity",
+					"eventType":"ShellTestSample","event_type":"ShellTestSample","integrationName":"nri-test","integrationVersion":"0.0.0",
+					"reportingAgent":"my_display_name","some-metric":1
+				}
+			]
+		}]`
+	defNriOutExecution = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine"
 )
 
-var integrationsDir = filepath.Join(testDataDir, "integrations")
+func createAgentAndStart(t *testing.T, scenario string) *agent.Emulator {
+	integrationsPath := filepath.Join("testdata", "scenarios", scenario)
+	a := agent.New(integrationsPath)
+	require.NoError(t, a.RunAgent())
+	return a
+}
 
 func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-	generator := "generator1.go"
-	integration := "integration1.go"
-	dir, err := tempFiles(map[string]string{
-		"parent-integration.yml": `
----
-integrations:
-  - name: nri-cfg-protocol
-    exec:
-      - go
-      - run
-      - ` + filepath.Join(integrationsDir, generator) + `
-    interval: 15
-`,
-	})
-	require.NoError(t, err)
-
-	a := agent.New(dir)
-
-	go a.RunAgent()
+	a := createAgentAndStart(t, "default")
 	defer a.Terminate()
 
-	// integrations process are spawned
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		_, err := findProcessByCmd(integration)
-		require.NoError(rt, err)
-	})
-	var body string
+	// the agent sends samples from the integration
 	select {
 	case req := <-a.ChannelHTTPRequests():
 		bodyBuffer, _ := ioutil.ReadAll(req.Body)
-		body = string(bodyBuffer)
+		assertMetrics(t, metricNRIOut, string(bodyBuffer), []string{"timestamp"})
 	case <-time.After(timeout):
 		assert.FailNow(t, "timeout while waiting for a response")
+		return
 	}
-	assert.Contains(t, body, "ShellTestSample")
-	removeTempFiles(t, dir)
+
+	// and just one integrations process is running
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err := findChildrenProcessByCmdName(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, p, 1)
+	})
+
+	// there are no process running
 	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		p, _ := findProcessByCmd(integration)
-		assert.Nil(rt, p)
-		p, _ = findProcessByCmd(generator)
-		assert.Nil(rt, p)
+		p, err := findAllProcessByCmd(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Empty(rt, p)
 	})
 }
-func Test_MultipleConfigNames(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-	generator := "generator2.go"
-	integration := "integration1.go"
-	dir, err := tempFiles(map[string]string{
-		"parent-integration.yml": `
----
-integrations:
-  - name: nri-cfg-protocol
-    exec:
-      - go
-      - run
-      - ` + filepath.Join(integrationsDir, generator) + `
-    interval: 15
-`,
-	})
-	require.NoError(t, err)
 
-	a := agent.New(dir)
-
-	go a.RunAgent()
+func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
+	a := createAgentAndStart(t, "scenario1")
 	defer a.Terminate()
 
-	// integrations process are spawned
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		_, err := findProcessByCmd(integration)
-		require.NoError(rt, err)
-	})
-	removeTempFiles(t, dir)
-	time.Sleep(10 * time.Minute)
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		p, _ := findProcessByCmd(integration)
-		require.Nil(rt, p)
-		p, _ = findProcessByCmd(generator)
-		require.Nil(rt, p)
-	})
-}
-
-func Test_IntegrationIsRelauchedIfTerminated(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-	generator := "generator1.go"
-	integration := "integration1.go"
-	dir, err := tempFiles(map[string]string{
-		"parent-integration.yml": `
----
-integrations:
-  - name: nri-cfg-protocol
-    exec:
-      - go
-      - run
-      - ` + filepath.Join(integrationsDir, generator) + `
-    interval: 15
-`,
-	})
-	require.NoError(t, err)
-
-	a := agent.New(dir)
-
-	go a.RunAgent()
-	defer a.Terminate()
-
-	// integrations process are spawned
-	p := &process.Process{}
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		p, err = findProcessByCmd(integration)
-		require.NoError(rt, err)
-	})
-	pidOld := p.Pid
-	err = p.Kill()
-	time.Sleep(10 * time.Second)
-	newP := &process.Process{}
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		newP, err = findProcessByCmd(integration)
-		require.NoError(rt, err)
-	})
-	assert.NotEqual(t, newP.Pid, pidOld)
-}
-
-func findProcessByCmd(cmd string) (*process.Process, error) {
-	ps, _ := process.Processes()
-	for _, p := range ps {
-		c, _ := p.Cmdline()
-		if strings.Contains(c, cmd) {
-			return p, nil
-		}
-	}
-	return nil, fmt.Errorf("no process found")
-}
-func tempFiles(pathContents map[string]string) (directory string, err error) {
-	dir, err := ioutil.TempDir("", "tempFiles")
-	if err != nil {
-		return "", err
-	}
-	for path, content := range pathContents {
-		if err := ioutil.WriteFile(filepath.Join(dir, path), []byte(content), 0666); err != nil {
-			return "", err
-		}
-	}
-	return dir, nil
-}
-func removeTempFiles(t *testing.T, dir string) {
-	func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Log(err)
+	/**
+	go func(){
+		for{
+			select {
+			case req := <-a.ChannelHTTPRequests():
+				bodyBuffer, _ := ioutil.ReadAll(req.Body)
+				fmt.Println(string(bodyBuffer))
+			}
 		}
 	}()
+	**/
+	// and just one integrations process is running
+	var p []*process.Process
+	var err error
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, p, 1)
+	})
+
+	// if the integration exits with error code
+	oldPid := p[0].Pid
+	assert.NoError(t, p[0].Kill())
+	// is eventually spawned again by the runner
+	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
+		p, err = findAllProcessByCmd(defNriOutExecution)
+		assert.NoError(rt, err)
+		if !assert.Len(rt, p, 1){
+			return
+		}
+	})
+	assert.NotEqual(t, oldPid, p[0].Pid)
+
 }
