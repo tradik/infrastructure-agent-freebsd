@@ -166,7 +166,6 @@ func (d *Definition) Run(ctx context.Context, bindVals *databind.Values, pidC, e
 		if removeFile != nil {
 			go removeFile(taskOutput.Done)
 		}
-		fmt.Printf("%v",taskOutput)
 		tasksOutput = append(tasksOutput, Output{Receive: taskOutput, ExtraLabels: ir.MetricAnnotations, EntityRewrite: ir.EntityRewrites})
 	}
 	return tasksOutput, nil
