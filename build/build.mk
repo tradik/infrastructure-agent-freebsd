@@ -19,7 +19,7 @@ GOTOOLS += github.com/jandelgado/gcov2lcov
 GOARCH ?= amd64
 
 LDFLAGS += -X main.buildVersion=$(VERSION)
-LDFLAGS += -X main.gitCommit=${GIT_COMMIT}
+LDFLAGS += main.gitCommit=${GIT_COMMIT}
 
 TEST_FLAGS += -failfast
 TEST_FLAGS += -race

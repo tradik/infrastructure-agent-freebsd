@@ -28,7 +28,14 @@ const (
 				}
 			]
 		}]`
-	defNriOutExecution = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine"
+	defNriOutExecution     = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine"
+	defNriOutLongExecution = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine -forever"
+)
+
+var (
+	cfgShortAndLongIntegrationTmpl = filepath.Join("testdata", "templates", "nri-config-two-integrations.json")
+	cfgShortIntegrationTmpl        = filepath.Join("testdata", "templates", "nri-config-integration-short.json")
+	cfgTemplatePath                = filepath.Join("testdata", "templates", "nri-config.json")
 )
 
 func createAgentAndStart(t *testing.T, scenario string) *agent.Emulator {
@@ -86,7 +93,7 @@ func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
 		p, err = findAllProcessByCmd(defNriOutExecution)
 		assert.NoError(rt, err)
-		if !assert.Len(rt, p, 1){
+		if !assert.Len(rt, p, 1) {
 			return
 		}
 	})
@@ -110,17 +117,14 @@ func Test_IntegrationIsRelaunchedIfOneIntegrationIsModified(t *testing.T) {
 	assert.NoError(t, p[0].Kill())
 	// is eventually spawned again by the runner
 	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
-		p, err = findAllProcessByCmd(defNriOutExecution)
+		p, err = findChildrenProcessByCmdName(defNriOutExecution)
 		assert.NoError(rt, err)
-		if !assert.Len(rt, p, 1){
+		if !assert.Len(rt, p, 1) {
 			return
 		}
 	})
 	assert.NotEqual(t, oldPid, p[0].Pid)
 }
-
-
-
 
 func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 	assert.Nil(t, createFile(filepath.Join("testdata", "templates", "nri-config.json"), filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json"), map[string]interface{}{
@@ -142,14 +146,53 @@ func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 	assert.Nil(t, createFile(filepath.Join("testdata", "templates", "nri-config.json"), filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json"), map[string]interface{}{
 		"timestamp": time.Now(),
 	}))
-	time.Sleep(40*time.Second)
+
 	// is eventually spawned again by the runner
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		p, err = findAllProcessByCmd(defNriOutExecution)
+	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
+		p, err = findChildrenProcessByCmdName(defNriOutExecution)
 		assert.NoError(rt, err)
-		if !assert.Len(rt, p, 1) {
-			return
+		if len(p) > 0 {
+			assert.NotEqual(rt, oldPid, p[0].Pid)
+		} else {
+			assert.FailNow(rt, "")
 		}
 	})
-	assert.NotEqual(t, oldPid, p[0].Pid)
+}
+
+func Test_IntegrationConfigContainsTwoIntegrationsAndOneIsRemoved(t *testing.T) {
+	currentTimestamp := time.Now()
+	localConfigFilePath := filepath.Join("testdata", "scenarios", "scenario3", "nri-config.json")
+	assert.Nil(t, createFile(cfgShortAndLongIntegrationTmpl, localConfigFilePath, map[string]interface{}{
+		"timestampShort": currentTimestamp,
+		"timestampLong":  currentTimestamp,
+	}))
+	a := createAgentAndStart(t, "scenario3")
+	defer a.Terminate()
+	// and just one integrations process is running
+	var shortPID []*process.Process
+	var longPID []*process.Process
+	var err error
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		shortPID, err = findChildrenProcessByCmdName(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, shortPID, 1)
+		longPID, err = findChildrenProcessByCmdName(defNriOutLongExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, longPID, 1)
+	})
+	assert.Nil(t, createFile(cfgShortIntegrationTmpl, localConfigFilePath, map[string]interface{}{
+		"timestampShort": currentTimestamp,
+	}))
+
+	// is eventually spawned again by the runner
+	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
+		newShortPID, err := findChildrenProcessByCmdName(defNriOutExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, newShortPID, 1)
+		newLongPID, err := findChildrenProcessByCmdName(defNriOutLongExecution)
+		assert.NoError(rt, err)
+		assert.Len(rt, newLongPID, 0)
+		assert.Equal(t, newShortPID[0].Pid, shortPID[0].Pid)
+	})
+
 }

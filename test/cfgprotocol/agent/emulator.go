@@ -57,7 +57,6 @@ func New(configsDir string) *Emulator {
 			fflag.FlagProtocolV4:       true,
 			fflag.FlagDMRegisterEnable: true,
 		}
-
 	})
 	cfg := agent.Context.Config()
 

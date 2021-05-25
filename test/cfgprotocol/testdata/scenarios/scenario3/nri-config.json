@@ -1,0 +1,22 @@
+{
+  "config_protocol_version": "1",
+  "action": "register_config",
+  "config_name": "myconfig",
+  "config": {
+    "integrations": [
+      {
+        "labels": {
+          "timestamp": "2021-05-25 14:20:14.166112 +0200 CEST m=+0.006318221"
+        },
+        "name": "nri-integration-short",
+        "exec": [
+          "go",
+          "run",
+          "testdata/go/spawner.go",
+          "-path",
+          "testdata/scenarios/shared/nri-out.json"
+        ]
+      }
+    ]
+  }
+}

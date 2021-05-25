@@ -36,3 +36,4 @@ versioninfo.json
 venv
 
 test/packaging/ansible/inventory.ini
+test/cfgprotocol/testdata/scenarios/scenario2/nri-config.json
