@@ -1,21 +1,24 @@
 // Copyright 2020 New Relic Corporation. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-// +build generator1
+// +build generator2
 
 package main
 
 import (
 	"fmt"
+	"html/template"
+	"os"
 	"strings"
 	"time"
 )
 
 func main() {
+
 	cfgprotocol := `
 {
   "config_protocol_version": "1",
   "action": "register_config",
-  "config_name": "myconfig",
+  "config_name": "{{ .name }}",
   "config": {
   "integrations": [
     {
@@ -24,19 +27,21 @@ func main() {
       "go",
       "run",
       "testdata/integrations/integration1.go"
-    ],
-    "interval": "15s",
-    "env": {
-      "PORT": "3306"
-    }
+    ]
     }
   ]
   }
 }`
 	cfgprotocol = strings.ReplaceAll(cfgprotocol, "\n", "")
 
-	for {
-		fmt.Println(cfgprotocol)
-		time.Sleep(5 * time.Second)
+	t := template.Must(template.New("test").Parse(cfgprotocol))
+
+	for i := 1; ; i++ {
+		vars := map[string]interface{}{
+			"name": fmt.Sprintf("config%d", i),
+		}
+		t.Execute(os.Stdout, vars)
+		fmt.Print("\n")
+		time.Sleep(1 * time.Second)
 	}
 }

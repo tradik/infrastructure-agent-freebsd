@@ -1,6 +1,6 @@
 // Copyright 2020 New Relic Corporation. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-// +build generator1
+// +build integration1
 
 package main
 
@@ -29,11 +29,7 @@ func main() {
                     "some-metric": 1
                 }
             ],
-            "inventory": {
-                "foo": {
-                    "name": "bar"
-                }
-            },
+            "inventory": {},
             "events": []
         }
     ]
