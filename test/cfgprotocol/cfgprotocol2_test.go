@@ -2,7 +2,6 @@ package cfgprotocol
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -70,7 +69,8 @@ func Test_OneIntegrationIsSpawnedOnceByOther(t *testing.T) {
 				assertMetrics(t, expected, string(bodyBuffer), []string{"timestamp"})
 				return
 			case <-time.After(timeout):
-				assert.Error(t, errors.New("timeout exceeded"))
+				assert.FailNow(t,"timeout exceeded")
+				return
 			}
 		}
 	}(emulator.ChannelHTTPRequests())
