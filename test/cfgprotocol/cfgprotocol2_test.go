@@ -42,7 +42,7 @@ func assertMetrics(t *testing.T, expectedStr, actual string, ignoredEventAttribu
 	fmt.Println(fail)
 }
 
-func Test_OneIntegrationIsSpawnedByOther(t *testing.T) {
+func Test_OneIntegrationIsSpawnedOnceByOther(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	timeout := 20 * time.Second
 	expected := `

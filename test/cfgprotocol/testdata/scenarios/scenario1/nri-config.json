@@ -13,7 +13,6 @@
           "-path",
           "testdata/scenarios/scenario1/nri-out.json",
           "-singleLine"
-
         ],
         "interval": "15s",
         "env": {
