@@ -1,0 +1,25 @@
+{
+  "config_protocol_version": "1",
+  "action": "register_config",
+  "config_name": "myconfig",
+  "config": {
+    "integrations": [
+      {
+        "name": "nri-test",
+        "exec": [
+          "go",
+          "run",
+          "testdata/go/printer.go",
+          "-path",
+          "testdata/scenarios/scenario1/nri-out.json",
+          "-singleLine"
+
+        ],
+        "interval": "15s",
+        "env": {
+          "PORT": "3306"
+        }
+      }
+    ]
+  }
+}

@@ -1,7 +1,0 @@
-integrations:
-  - name: nri-cfg-protocol
-    exec:
-      - /bin/cat
-      - {{.baseDir}}/cfgprotocol.json
-    interval: 15
-    timeout: 0
