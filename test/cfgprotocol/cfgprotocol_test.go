@@ -4,6 +4,7 @@ package cfgprotocol
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -220,5 +221,32 @@ func Test_IntegrationConfigContainsTwoIntegrationsAndOneIsRemoved(t *testing.T) 
 		p2, err := findChildrenProcessByCmdName(processName2Re)
 		assert.NoError(rt, err)
 		assert.Len(rt, p2, 0)
+	})
+}
+
+/**
+
+ */
+func Test_IntegrationConfigNewRelicInfraConfigurationIsRemoved(t *testing.T) {
+	nriCfgTemplatePath := templatePath("settings.yml")
+	nriCfgPath := filepath.Join("testdata", "scenarios", "scenario4", "settings.yml")
+	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
+		"scenario": "scenario4",
+	}))
+	a := createAgentAndStart(t, "scenario4")
+	defer a.Terminate()
+	processNameRe := getProcessNameRegExp("nri-out-long")
+	var p []*process.Process
+	var err error
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findChildrenProcessByCmdName(processNameRe)
+		assert.NoError(rt, err)
+		assert.Len(rt, p, 2)
+	})
+	assert.Nil(t, os.Remove(nriCfgPath))
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findChildrenProcessByCmdName(processNameRe)
+		assert.NoError(rt, err)
+		assert.Len(rt, p, 0)
 	})
 }

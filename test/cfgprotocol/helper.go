@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 	"text/template"
 
@@ -40,9 +39,6 @@ func findChildrenProcessByCmdName(re *regexp.Regexp) ([]*process.Process, error)
 		c, err := p.Cmdline()
 		if err != nil {
 			continue
-		}
-		if strings.Contains("go run testdata/go/spawner", c) {
-			fmt.Println(c)
 		}
 		if re.Match([]byte(c)) {
 			pFound = append(pFound, p)
@@ -98,8 +94,7 @@ func traceRequests(ch chan http.Request) {
 }
 
 func getProcessNameRegExp(name string) *regexp.Regexp {
-	expr := fmt.Sprintf(`go run testdata/go/spawner.go (.*) -nri-process-name %s`, name)
-	fmt.Println(expr)
+	expr := fmt.Sprintf(`go run testdata/go/spawner.go(.*)-nri-process-name %s(.*)`, name)
 	return regexp.MustCompile(expr)
 }
 

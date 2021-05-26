@@ -24,7 +24,7 @@ const (
 type Config struct {
 	// APIKey is required  and refers to your New Relic Insights Insert API key.
 	APIKey string
-	// Client is the http.ChannelHTTPRequests used for making requests.
+	// Client is the http.Client used for making requests.
 	Client *http.Client
 	// HarvestTimeout is the total amount of time including retries that the
 	// Harvester may use trying to harvest data.  By default, HarvestTimeout
