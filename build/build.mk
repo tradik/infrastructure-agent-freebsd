@@ -1,7 +1,7 @@
 SOURCE_FILES ?=./pkg/... ./cmd/... ./internal/... ./test/...
 SOURCE_FILES_DIR ?= $(CURDIR)/pkg $(CURDIR)/cmd $(CURDIR)/internal $(CURDIR)/test
 TEST_PATTERN ?=.
-TEST_OPTIONS ?= -ldflags '-X github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration.minimumIntegrationIntervalOverride=2s'
+TEST_OPTIONS ?=
 ALL_PACKAGES ?= $(shell $(GO_BIN) list ./cmd/...)
 
 MAIN_PACKAGES += ./cmd/$(PROJECT_NAME)
@@ -23,6 +23,7 @@ LDFLAGS += main.gitCommit=${GIT_COMMIT}
 
 TEST_FLAGS += -failfast
 TEST_FLAGS += -race
+TEST_FLAGS += -ldflags '-X github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration.minimumIntegrationIntervalOverride=2s'
 
 export GO111MODULE := on
 export PATH := $(PROJECT_WORKSPACE)/bin:$(PATH)
