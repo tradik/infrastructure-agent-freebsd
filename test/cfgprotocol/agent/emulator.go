@@ -51,8 +51,12 @@ func New(configsDir string) *Emulator {
 		config.LogFormat = "text"
 		config.LogToStdout = true
 		config.Debug = true
-		config.RegisterEnabled = false
-		config.HeartBeatSampleRate = 15
+		config.MetricsSystemSampleRate = 2
+		config.MetricsProcessSampleRate = 2
+		config.MetricsNetworkSampleRate = 2
+		config.HeartBeatSampleRate = 2
+		config.MetricsNFSSampleRate =2
+		config.MetricsStorageSampleRate =2
 		config.Features = map[string]bool{
 			fflag.FlagProtocolV4: true,
 		}
@@ -129,6 +133,7 @@ func (ae *Emulator) RunAgent() error {
 			panic(err)
 		}
 	}()
+	
 	return nil
 }
 
