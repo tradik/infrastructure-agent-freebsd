@@ -18,19 +18,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func tempFiles(pathContents map[string]string) (directory string, err error) {
-	dir, err := ioutil.TempDir("", "tempFiles")
-	if err != nil {
-		return "", err
-	}
-	for path, content := range pathContents {
-		if err := ioutil.WriteFile(filepath.Join(dir, path), []byte(content), 0666); err != nil {
-			return "", err
-		}
-	}
-	return dir, nil
-}
-
 func findAllProcessByCmd(re *regexp.Regexp) ([]*process.Process, error) {
 	ps, err := process.Processes()
 	if err != nil {
@@ -54,7 +41,7 @@ func findChildrenProcessByCmdName(re *regexp.Regexp) ([]*process.Process, error)
 		if err != nil {
 			continue
 		}
-		if strings.Contains("go run testdata/go/spawner",c){
+		if strings.Contains("go run testdata/go/spawner", c) {
 			fmt.Println(c)
 		}
 		if re.Match([]byte(c)) {
@@ -95,7 +82,7 @@ func assertMetrics(t *testing.T, expectedStr, actual string, ignoredEventAttribu
 		}
 	}
 	var expected []map[string]interface{}
-	json.Unmarshal([]byte(expectedStr), &expected)
+	assert.Nil(t, json.Unmarshal([]byte(expectedStr), &expected))
 
 	return assert.Equal(t, expected, v)
 }
@@ -116,7 +103,6 @@ func getProcessNameRegExp(name string) *regexp.Regexp {
 	return regexp.MustCompile(expr)
 }
 
-
 func createFile(from, dest string, vars map[string]interface{}) error {
 	outputFile, err := os.Create(dest)
 	if err != nil {
@@ -131,5 +117,5 @@ func createFile(from, dest string, vars map[string]interface{}) error {
 }
 
 func templatePath(filename string) string {
-	return filepath.Join("testdata", "templates",filename)
+	return filepath.Join("testdata", "templates", filename)
 }

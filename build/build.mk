@@ -1,7 +1,7 @@
 SOURCE_FILES ?=./pkg/... ./cmd/... ./internal/... ./test/...
 SOURCE_FILES_DIR ?= $(CURDIR)/pkg $(CURDIR)/cmd $(CURDIR)/internal $(CURDIR)/test
 TEST_PATTERN ?=.
-TEST_OPTIONS ?=
+TEST_OPTIONS ?= -ldflags '-X github.com/newrelic/infrastructure-agent/internal/integrations/v4/integration.minimumIntegrationIntervalOverride=2s'
 ALL_PACKAGES ?= $(shell $(GO_BIN) list ./cmd/...)
 
 MAIN_PACKAGES += ./cmd/$(PROJECT_NAME)

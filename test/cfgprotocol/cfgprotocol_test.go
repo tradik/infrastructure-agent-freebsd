@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	timeout        = 15 * time.Second
+	timeout        = 20 * time.Second
 	metricNRIOutV3 = `[{
 			"ExternalKeys":["shell-test:some-entity"],
 			"IsAgent":false,
@@ -153,6 +153,7 @@ func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 	}))
 	a := createAgentAndStart(t, "scenario2")
 	defer a.Terminate()
+
 	// and just one integrations process is running
 	var p []*process.Process
 	var err error
@@ -169,7 +170,7 @@ func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 		"timestamp":   time.Now(),
 		"processName": "nri-out-process",
 	}))
-	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+	testhelpers.Eventually(t, 25*time.Second, func(rt require.TestingT) {
 		p, err = findAllProcessByCmd(processNameRe)
 		assert.NoError(rt, err)
 		if assert.Len(rt, p, 1) {

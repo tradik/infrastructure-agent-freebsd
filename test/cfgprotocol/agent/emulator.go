@@ -42,7 +42,7 @@ func (ae *Emulator) ChannelHTTPRequests() chan http.Request {
 func New(configsDir string) *Emulator {
 	rc := ihttp.NewRequestRecorderClient()
 
-	agent := infra.NewAgent(rc.Client, func(config *config.Config) {
+	ag := infra.NewAgent(rc.Client, func(config *config.Config) {
 		config.DisplayName = "my_display_name"
 		config.License = "abcdef012345"
 		config.PayloadCompressionLevel = gzip.NoCompression
@@ -57,7 +57,7 @@ func New(configsDir string) *Emulator {
 			fflag.FlagProtocolV4: true,
 		}
 	})
-	cfg := agent.Context.Config()
+	cfg := ag.Context.Config()
 
 	integrationCfg := v4.NewConfig(
 		cfg.Verbose,
@@ -69,14 +69,13 @@ func New(configsDir string) *Emulator {
 
 	return &Emulator{
 		chRequests:     rc.RequestCh,
-		agent:          agent,
+		agent:          ag,
 		integrationCfg: integrationCfg,
 	}
 }
 
 func (ae *Emulator) Terminate() {
 	ae.agent.Terminate()
-	// TODO remove store data folder
 }
 
 func (ae *Emulator) RunAgent() error {
@@ -125,7 +124,11 @@ func (ae *Emulator) RunAgent() error {
 		os.Exit(1)
 	}
 	go integrationManager.Start(ae.agent.Context.Ctx)
-	go ae.agent.Run()
+	go func() {
+		if err := ae.agent.Run(); err != nil {
+			panic(err)
+		}
+	}()
 	return nil
 }
 
