@@ -3,7 +3,6 @@
 package cfgprotocol
 
 import (
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
@@ -54,7 +53,6 @@ func Test_OneIntegrationIsExecutedV4(t *testing.T) {
 	select {
 	case req := <-a.ChannelHTTPRequests():
 		bodyBuffer, _ := ioutil.ReadAll(req.Body)
-		fmt.Println(string(bodyBuffer))
 		assertMetrics(t, metricNRIOutV4, string(bodyBuffer), []string{"timestamp"})
 	case <-time.After(timeout):
 		assert.FailNow(t, "timeout while waiting for a response")
@@ -117,7 +115,6 @@ func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 		assert.NoError(rt, err)
 		assert.Len(rt, p, 1)
 	})
-	go traceRequests(a.ChannelHTTPRequests())
 	// if the integration exits with error code
 	oldPid := p[0].Pid
 	assert.NoError(t, p[0].Kill())
@@ -163,7 +160,6 @@ func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 		assert.NoError(rt, err)
 		assert.Len(rt, p, 1)
 	})
-	go traceRequests(a.ChannelHTTPRequests())
 	// if the integration exits with error code
 	oldPid := p[0].Pid
 	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
