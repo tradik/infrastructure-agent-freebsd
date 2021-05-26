@@ -5,17 +5,17 @@
   "config": {
     "integrations": [
       {
-        "labels": {
-          "timestamp": "2021-05-25 14:20:14.166112 +0200 CEST m=+0.006318221"
-        },
-        "name": "nri-integration-short",
+        "name": "nri-test",
         "exec": [
           "go",
           "run",
           "testdata/go/spawner.go",
           "-path",
-          "testdata/scenarios/shared/nri-out.json"
-        ]
+          "testdata/scenarios/shared/nri-out.json",
+          "-nri-process-name",
+          "nri-out-short"
+        ],
+        "interval": "2s"
       }
     ]
   }

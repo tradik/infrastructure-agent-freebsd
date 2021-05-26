@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"text/template"
@@ -30,22 +31,15 @@ func tempFiles(pathContents map[string]string) (directory string, err error) {
 	return dir, nil
 }
 
-func removeTempFiles(dir string) error {
-	if err := os.RemoveAll(dir); err != nil {
-		return err
-	}
-	return nil
-}
-
-func findAllProcessByCmd(cmd string) ([]*process.Process, error) {
+func findAllProcessByCmd(re *regexp.Regexp) ([]*process.Process, error) {
 	ps, err := process.Processes()
 	if err != nil {
 		return nil, err
 	}
-	return findProcessByCmd(cmd, ps), nil
+	return findProcessByCmd(re, ps), nil
 }
 
-func findChildrenProcessByCmdName(cmd string) ([]*process.Process, error) {
+func findChildrenProcessByCmdName(re *regexp.Regexp) ([]*process.Process, error) {
 	pp, err := process.NewProcess(int32(os.Getpid()))
 	if err != nil {
 		return nil, err
@@ -54,24 +48,38 @@ func findChildrenProcessByCmdName(cmd string) ([]*process.Process, error) {
 	if err != nil {
 		return nil, err
 	}
-	return findProcessByCmd(cmd, children), nil
+	pFound := make([]*process.Process, 0)
+	for _, p := range children {
+		c, err := p.Cmdline()
+		if err != nil {
+			continue
+		}
+		if strings.Contains("go run testdata/go/spawner",c){
+			fmt.Println(c)
+		}
+		if re.Match([]byte(c)) {
+			pFound = append(pFound, p)
+		}
+	}
+	return pFound, nil
+
 }
 
-func findProcessByCmd(cmd string, ps []*process.Process) []*process.Process {
-	pFound := []*process.Process{}
+func findProcessByCmd(re *regexp.Regexp, ps []*process.Process) []*process.Process {
+	pFound := make([]*process.Process, 0)
 	for _, p := range ps {
 		c, err := p.Cmdline()
 		if err != nil {
 			continue
 		}
-		if strings.Contains(c, cmd) {
+		if re.Match([]byte(c)) {
 			pFound = append(pFound, p)
 		}
 	}
 	return pFound
 }
 
-func assertMetrics(t *testing.T, expectedStr, actual string, ignoredEventAttributes []string) {
+func assertMetrics(t *testing.T, expectedStr, actual string, ignoredEventAttributes []string) bool {
 	var v []map[string]interface{}
 	if err := json.Unmarshal([]byte(actual), &v); err != nil {
 		t.Error(err)
@@ -89,7 +97,7 @@ func assertMetrics(t *testing.T, expectedStr, actual string, ignoredEventAttribu
 	var expected []map[string]interface{}
 	json.Unmarshal([]byte(expectedStr), &expected)
 
-	assert.Equal(t, expected, v)
+	return assert.Equal(t, expected, v)
 }
 
 func traceRequests(ch chan http.Request) {
@@ -102,6 +110,13 @@ func traceRequests(ch chan http.Request) {
 	}
 }
 
+func getProcessNameRegExp(name string) *regexp.Regexp {
+	expr := fmt.Sprintf(`go run testdata/go/spawner.go (.*) -nri-process-name %s`, name)
+	fmt.Println(expr)
+	return regexp.MustCompile(expr)
+}
+
+
 func createFile(from, dest string, vars map[string]interface{}) error {
 	outputFile, err := os.Create(dest)
 	if err != nil {
@@ -113,4 +128,8 @@ func createFile(from, dest string, vars map[string]interface{}) error {
 
 	}
 	return t.Execute(outputFile, vars)
+}
+
+func templatePath(filename string) string {
+	return filepath.Join("testdata", "templates",filename)
 }

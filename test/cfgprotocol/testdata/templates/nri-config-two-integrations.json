@@ -5,32 +5,40 @@
   "config": {
     "integrations": [
       {
+        "name": "nri-out-long-1",
         "labels": {
-          "timestamp": "{{.timestampLong}}"
+          "timestamp": "{{.timestamp1}}"
         },
-        "name": "nri-integration-long",
         "exec": [
           "go",
           "run",
           "testdata/go/spawner.go",
           "-path",
           "testdata/scenarios/shared/nri-out.json",
-          "-singleLine",
-          "-forever"
-        ]
+          "-nri-process-name",
+          "nri-out-long-1",
+          "-mode",
+          "long"
+        ],
+        "interval": "2s"
       },
       {
+        "name": "nri-out-long-2",
         "labels": {
-          "timestamp": "{{.timestampShort}}"
+          "timestamp": "{{.timestamp2}}"
         },
-        "name": "nri-integration-short",
         "exec": [
           "go",
           "run",
           "testdata/go/spawner.go",
           "-path",
-          "testdata/scenarios/shared/nri-out.json"
-        ]
+          "testdata/scenarios/shared/nri-out.json",
+          "-nri-process-name",
+          "nri-out-long-2",
+          "-mode",
+          "long"
+        ],
+        "interval": "2s"
       }
     ]
   }

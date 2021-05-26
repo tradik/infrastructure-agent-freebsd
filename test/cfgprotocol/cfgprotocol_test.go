@@ -36,14 +36,6 @@ const (
 			"Events": [{"attr.format": "attribute","attributes": {"format": "attribute"},"category": "notifications","entityKey": "uniqueName",
 					"eventType": "InfrastructureEvent","format": "event","summary": "foo"}]
 			}]`
-	defNriOutExecution     = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine"
-	defNriOutLongExecution = "go run testdata/go/spawner.go -path testdata/scenarios/shared/nri-out.json -singleLine -forever"
-)
-
-var (
-	cfgShortAndLongIntegrationTmpl = filepath.Join("testdata", "templates", "nri-config-two-integrations.json")
-	cfgShortIntegrationTmpl        = filepath.Join("testdata", "templates", "nri-config-integration-short.json")
-	cfgTemplatePath                = filepath.Join("testdata", "templates", "nri-config.json")
 )
 
 func createAgentAndStart(t *testing.T, scenario string) *agent.Emulator {
@@ -69,43 +61,59 @@ func Test_OneIntegrationIsExecutedV4(t *testing.T) {
 		return
 	}
 }
+
+/**
+Given a config protocol integration that spawns a short running process
+When the integrations is executed
+Then there is a child process running
+When the short execution is terminated
+Then there are not child processes
+*/
 func Test_OneIntegrationIsExecutedAndTerminated(t *testing.T) {
-	a := createAgentAndStart(t, "default")
+	a := createAgentAndStart(t, "scenario0")
 	defer a.Terminate()
 
 	// the agent sends samples from the integration
 	select {
 	case req := <-a.ChannelHTTPRequests():
 		bodyBuffer, _ := ioutil.ReadAll(req.Body)
-		assertMetrics(t, metricNRIOutV3, string(bodyBuffer), []string{"timestamp"})
+		if !assertMetrics(t, metricNRIOutV3, string(bodyBuffer), []string{"timestamp"}) {
+			return
+		}
 	case <-time.After(timeout):
 		assert.FailNow(t, "timeout while waiting for a response")
 		return
 	}
-
+	processNameRe := getProcessNameRegExp("nri-out-short")
 	// and just one integrations process is running
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
-		p, err := findChildrenProcessByCmdName(defNriOutExecution)
+		p, err := findChildrenProcessByCmdName(processNameRe)
 		assert.NoError(rt, err)
 		assert.Len(rt, p, 1)
 	})
 
 	// there are no process running
-	testhelpers.Eventually(t, 10*time.Second, func(rt require.TestingT) {
-		p, err := findAllProcessByCmd(defNriOutExecution)
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err := findAllProcessByCmd(processNameRe)
 		assert.NoError(rt, err)
 		assert.Empty(rt, p)
 	})
 }
 
+/**
+Given a config protocol integration that spawns a long running process
+When the long running process is killed
+Then a new long running process with a new PID is launched
+*/
 func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 	a := createAgentAndStart(t, "scenario1")
 	defer a.Terminate()
 	// and just one integrations process is running
 	var p []*process.Process
 	var err error
+	processName := getProcessNameRegExp("nri-out-long")
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
-		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+		p, err = findChildrenProcessByCmdName(processName)
 		assert.NoError(rt, err)
 		assert.Len(rt, p, 1)
 	})
@@ -114,109 +122,106 @@ func Test_IntegrationIsRelaunchedIfTerminated(t *testing.T) {
 	oldPid := p[0].Pid
 	assert.NoError(t, p[0].Kill())
 	// is eventually spawned again by the runner
-	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
-		p, err = findAllProcessByCmd(defNriOutExecution)
-		assert.NoError(rt, err)
-		if !assert.Len(rt, p, 1) {
-			return
-		}
-	})
-	assert.NotEqual(t, oldPid, p[0].Pid)
-}
-
-func Test_IntegrationIsRelaunchedIfOneIntegrationIsModified(t *testing.T) {
-	a := createAgentAndStart(t, "scenario2")
-	defer a.Terminate()
-	// and just one integrations process is running
-	var p []*process.Process
-	var err error
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
-		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+		p, err = findAllProcessByCmd(processName)
 		assert.NoError(rt, err)
-		assert.Len(rt, p, 1)
+		assert.Len(rt, p, 0)
 	})
-	go traceRequests(a.ChannelHTTPRequests())
-	// if the integration exits with error code
-	oldPid := p[0].Pid
-	assert.NoError(t, p[0].Kill())
-	// is eventually spawned again by the runner
-	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
-		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+	var newPid = oldPid
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findAllProcessByCmd(processName)
 		assert.NoError(rt, err)
-		if !assert.Len(rt, p, 1) {
-			return
+		if assert.Len(rt, p, 1) {
+			newPid = p[0].Pid
 		}
 	})
-	assert.NotEqual(t, oldPid, p[0].Pid)
+	assert.NotEqual(t, oldPid, newPid)
 }
 
+/**
+Given a config protocol integration that spawns a long running process
+When the configuration for the long running is updated
+Then the running long process is killed
+And a new long running process with a new PID is launched
+*/
 func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
-	assert.Nil(t, createFile(filepath.Join("testdata", "templates", "nri-config.json"), filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json"), map[string]interface{}{
-		"timestamp": time.Now(),
+	nriCfgTemplatePath := templatePath("nri-config.json")
+	nriCfgPath := filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json")
+	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
+		"timestamp":   time.Now(),
+		"processName": "nri-out-long",
 	}))
 	a := createAgentAndStart(t, "scenario2")
 	defer a.Terminate()
 	// and just one integrations process is running
 	var p []*process.Process
 	var err error
+	processNameRe := getProcessNameRegExp("nri-out-long")
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
-		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+		p, err = findChildrenProcessByCmdName(processNameRe)
 		assert.NoError(rt, err)
 		assert.Len(rt, p, 1)
 	})
 	go traceRequests(a.ChannelHTTPRequests())
 	// if the integration exits with error code
 	oldPid := p[0].Pid
-	assert.Nil(t, createFile(filepath.Join("testdata", "templates", "nri-config.json"), filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json"), map[string]interface{}{
-		"timestamp": time.Now(),
+	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
+		"timestamp":   time.Now(),
+		"processName": "nri-out-long",
 	}))
-
-	// is eventually spawned again by the runner
-	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
-		p, err = findChildrenProcessByCmdName(defNriOutExecution)
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p, err = findAllProcessByCmd(processNameRe)
 		assert.NoError(rt, err)
-		if len(p) > 0 {
+		if assert.Len(rt, p, 1) {
 			assert.NotEqual(rt, oldPid, p[0].Pid)
-		} else {
-			assert.FailNow(rt, "")
 		}
 	})
+	assert.Len(t, p, 1)
 }
 
+/**
+Given a config protocol integration that spawns two long running process
+When one of the spawn integrations is removed
+Then one process continue running with the same PID
+And the other process is removed
+*/
 func Test_IntegrationConfigContainsTwoIntegrationsAndOneIsRemoved(t *testing.T) {
-	currentTimestamp := time.Now()
-	localConfigFilePath := filepath.Join("testdata", "scenarios", "scenario3", "nri-config.json")
-	assert.Nil(t, createFile(cfgShortAndLongIntegrationTmpl, localConfigFilePath, map[string]interface{}{
-		"timestampShort": currentTimestamp,
-		"timestampLong":  currentTimestamp,
-	}))
+	nriCfgTemplatePath := templatePath("nri-config-two-integrations.json")
+	nriCfgPath := filepath.Join("testdata", "scenarios", "scenario3", "nri-config.json")
+	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, nil))
 	a := createAgentAndStart(t, "scenario3")
 	defer a.Terminate()
 	// and just one integrations process is running
-	var shortPID []*process.Process
-	var longPID []*process.Process
+	var p1 []*process.Process
+	var p2 []*process.Process
 	var err error
+
+	processName1Re := getProcessNameRegExp("nri-out-long-1")
+	processName2Re := getProcessNameRegExp("nri-out-long-2")
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
-		shortPID, err = findChildrenProcessByCmdName(defNriOutExecution)
+		p1, err = findChildrenProcessByCmdName(processName1Re)
 		assert.NoError(rt, err)
-		assert.Len(rt, shortPID, 1)
-		longPID, err = findChildrenProcessByCmdName(defNriOutLongExecution)
+		assert.Len(rt, p1, 1)
+		p2, err = findChildrenProcessByCmdName(processName2Re)
 		assert.NoError(rt, err)
-		assert.Len(rt, longPID, 1)
+		assert.Len(rt, p2, 1)
 	})
-	assert.Nil(t, createFile(cfgShortIntegrationTmpl, localConfigFilePath, map[string]interface{}{
-		"timestampShort": currentTimestamp,
+
+	p1OldPid := p1[0].Pid
+
+	nriCfgTemplatePath = templatePath("nri-config.json")
+	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
+		"processName": "nri-out-long-1",
 	}))
 
-	// is eventually spawned again by the runner
-	testhelpers.Eventually(t, 40*time.Second, func(rt require.TestingT) {
-		newShortPID, err := findChildrenProcessByCmdName(defNriOutExecution)
+	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
+		p1, err := findChildrenProcessByCmdName(processName1Re)
 		assert.NoError(rt, err)
-		assert.Len(rt, newShortPID, 1)
-		newLongPID, err := findChildrenProcessByCmdName(defNriOutLongExecution)
-		assert.NoError(rt, err)
-		assert.Len(rt, newLongPID, 0)
-		assert.Equal(t, newShortPID[0].Pid, shortPID[0].Pid)
-	})
+		assert.Len(rt, p1, 1)
+		assert.Equal(rt, p1[0].Pid, p1OldPid)
 
+		p2, err := findChildrenProcessByCmdName(processName2Re)
+		assert.NoError(rt, err)
+		assert.Len(rt, p2, 0)
+	})
 }

@@ -12,9 +12,12 @@
           "testdata/go/spawner.go",
           "-path",
           "testdata/scenarios/shared/nri-out.json",
-          "-singleLine",
-          "-forever"
-        ]
+          "-nri-process-name",
+          "nri-out-long",
+          "-mode",
+          "long"
+        ],
+        "interval": "2s"
       }
     ]
   }

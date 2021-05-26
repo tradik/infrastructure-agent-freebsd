@@ -11,10 +11,11 @@ import (
 
 func main() {
 	path := flag.String("path", "", "")
-	singleLine := flag.Bool("singleLine", false, "")
-	times := flag.Int("times", 1, "")
-	sleepTime := flag.Duration("sleepTime", 1 * time.Second, "")
-	forever := flag.Bool("forever", false, "")
+	singleLine := flag.Bool("singleLine", true, "")
+	times := flag.Int("times", 100, "")
+	sleepTime := flag.Duration("sleepTime", 2*time.Second, "")
+	mode := flag.String("mode", "short", "")
+	flag.String("nri-process-name", "unknown", "")
 	flag.Parse()
 	content, err := ioutil.ReadFile(*path)
 	if err != nil {
@@ -24,14 +25,17 @@ func main() {
 	if *singleLine {
 		contentStr = strings.ReplaceAll(contentStr, "\n", "")
 	}
-	if *forever{
-		for {
+	switch strings.ToLower(*mode) {
+	case "long":
+		for i := 0; i < *times; i++ {
 			fmt.Println(contentStr)
 			time.Sleep(*sleepTime)
 		}
-	}
-	for i:=0;i<*times;i++{
+	case "short":
 		fmt.Println(contentStr)
 		time.Sleep(*sleepTime)
+	default:
+		panic("unsupported running mode!")
 	}
+
 }

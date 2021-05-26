@@ -6,4 +6,6 @@ integrations:
       - testdata/go/spawner.go
       - "-path"
       - "testdata/scenarios/scenario3/nri-config.json"
-      - "-singleLine"
+      - "-nri-process-name"
+      - "nri-config"
+    interval: "2s"
