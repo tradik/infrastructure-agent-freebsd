@@ -228,7 +228,6 @@ func Test_IntegrationConfigContainsTwoIntegrationsAndOneIsRemoved(t *testing.T) 
 
  */
 func Test_IntegrationConfigNewRelicInfraConfigurationIsRemoved(t *testing.T) {
-	t.Skip() // TODO fix pending to implement
 	nriCfgTemplatePath := templatePath("settings.yml")
 	nriCfgPath := filepath.Join("testdata", "scenarios", "scenario4", "settings.yml")
 	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
