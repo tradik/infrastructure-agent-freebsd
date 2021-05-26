@@ -149,14 +149,14 @@ func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 	nriCfgPath := filepath.Join("testdata", "scenarios", "scenario2", "nri-config.json")
 	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
 		"timestamp":   time.Now(),
-		"processName": "nri-out-long",
+		"processName": "nri-out-process",
 	}))
 	a := createAgentAndStart(t, "scenario2")
 	defer a.Terminate()
 	// and just one integrations process is running
 	var p []*process.Process
 	var err error
-	processNameRe := getProcessNameRegExp("nri-out-long")
+	processNameRe := getProcessNameRegExp("nri-out-process")
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
 		p, err = findChildrenProcessByCmdName(processNameRe)
 		assert.NoError(rt, err)
@@ -167,7 +167,7 @@ func Test_IntegrationIsRelaunchedIfIntegrationDetailsAreChanged(t *testing.T) {
 	oldPid := p[0].Pid
 	assert.Nil(t, createFile(nriCfgTemplatePath, nriCfgPath, map[string]interface{}{
 		"timestamp":   time.Now(),
-		"processName": "nri-out-long",
+		"processName": "nri-out-process",
 	}))
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
 		p, err = findAllProcessByCmd(processNameRe)
