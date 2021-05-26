@@ -8,5 +8,4 @@ integrations:
       - "testdata/scenarios/{{.scenario}}/nri-config.txt"
       - "-nri-process-name"
       - "nri-config"
-      - "-singleLine"
-      - false
+      - "-multiLine"

@@ -11,8 +11,7 @@
           "run",
           "testdata/go/spawner.go",
           "-path",
-          "testdata/scenarios/shared/nri-out.v4.json",
-          "-singleLine"
+          "testdata/scenarios/shared/nri-out.v4.json"
         ],
         "interval": "15s",
         "env": {

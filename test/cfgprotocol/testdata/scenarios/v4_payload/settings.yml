@@ -6,4 +6,3 @@ integrations:
       - testdata/go/spawner.go
       - "-path"
       - "testdata/scenarios/v4_payload/nri-config.json"
-      - "-singleLine"
