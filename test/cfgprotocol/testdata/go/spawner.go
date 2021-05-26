@@ -11,7 +11,7 @@ import (
 
 func main() {
 	path := flag.String("path", "", "")
-	flag.Bool("singleLine", true, "")
+	singleLine := flag.Bool("singleLine", true, "")
 	times := flag.Int("times", 100, "")
 	sleepTime := flag.Duration("sleepTime", 2*time.Second, "")
 	mode := flag.String("mode", "short", "")
@@ -22,7 +22,9 @@ func main() {
 		panic(err)
 	}
 	contentStr := string(content)
-
+	if *singleLine {
+		contentStr = strings.ReplaceAll(contentStr, "\n", "")
+	}
 	switch strings.ToLower(*mode) {
 	case "long":
 		for i := 0; i < *times; i++ {
