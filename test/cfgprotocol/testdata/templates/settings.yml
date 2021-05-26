@@ -1,9 +1,6 @@
 integrations:
-  - name: simple-generator
-    exec:
-      - go
-      - run
-      - testdata/go/spawner.go
+  - name: spawner
+    cli_args:
       - "-path"
       - "testdata/scenarios/{{.scenario}}/nri-config.txt"
       - "-nri-process-name"

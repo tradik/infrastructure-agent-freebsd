@@ -5,14 +5,11 @@
   "config": {
     "integrations": [
       {
-        "name": "{{.processName}}",
+        "name": "spawner",
         "labels": {
           "timestamp": "{{.timestamp}}"
         },
-        "exec": [
-          "go",
-          "run",
-          "testdata/go/spawner.go",
+        "cli_args": [
           "-path",
           "testdata/scenarios/shared/nri-out.json",
           "-nri-process-name",

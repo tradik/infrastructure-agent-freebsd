@@ -94,7 +94,7 @@ func traceRequests(ch chan http.Request) {
 }
 
 func getProcessNameRegExp(name string) *regexp.Regexp {
-	expr := fmt.Sprintf(`go run testdata/go/spawner.go(.*)-nri-process-name %s(.*)`, name)
+	expr := fmt.Sprintf(`spawner(.*)-nri-process-name %s(.*)`, name)
 	return regexp.MustCompile(expr)
 }
 

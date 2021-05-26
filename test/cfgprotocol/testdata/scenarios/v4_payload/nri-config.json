@@ -5,11 +5,8 @@
   "config": {
     "integrations": [
       {
-        "name": "nri-test",
-        "exec": [
-          "go",
-          "run",
-          "testdata/go/spawner.go",
+        "name": "spawner",
+        "cli_args":[
           "-path",
           "testdata/scenarios/shared/nri-out.v4.json"
         ],

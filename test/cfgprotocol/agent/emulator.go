@@ -33,13 +33,14 @@ type Emulator struct {
 	chRequests     chan http.Request
 	agent          *agent.Agent
 	integrationCfg v4.Configuration
+	tempDir        string
 }
 
 func (ae *Emulator) ChannelHTTPRequests() chan http.Request {
 	return ae.chRequests
 }
 
-func New(configsDir string) *Emulator {
+func New(configsDir, tempBinDir string) *Emulator {
 	rc := ihttp.NewRequestRecorderClient()
 
 	ag := infra.NewAgent(rc.Client, func(config *config.Config) {
@@ -60,26 +61,28 @@ func New(configsDir string) *Emulator {
 		config.Features = map[string]bool{
 			fflag.FlagProtocolV4: true,
 		}
+		config.CustomPluginInstallationDir = tempBinDir
 	})
 	cfg := ag.Context.Config()
-
 	integrationCfg := v4.NewConfig(
 		cfg.Verbose,
 		cfg.Features,
 		cfg.PassthroughEnvironment,
 		[]string{configsDir},
-		nil,
+		[]string{cfg.CustomPluginInstallationDir},
 	)
 
 	return &Emulator{
 		chRequests:     rc.RequestCh,
 		agent:          ag,
 		integrationCfg: integrationCfg,
+		tempDir:        tempBinDir,
 	}
 }
 
 func (ae *Emulator) Terminate() {
 	ae.agent.Terminate()
+	os.RemoveAll(ae.tempDir)
 }
 
 func (ae *Emulator) RunAgent() error {

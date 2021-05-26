@@ -8,13 +8,12 @@
         "labels": {
           "timestamp": "{{.timestampShort}}"
         },
-        "name": "nri-integration-short",
-        "exec": [
-          "go",
-          "run",
-          "testdata/go/spawner.go",
+        "name": "spawner",
+        "cli_args": [
           "-path",
-          "testdata/scenarios/shared/nri-out.json"
+          "testdata/scenarios/shared/nri-out.json",
+          "-nri-process-name",
+          "nri-out-long-2"
         ]
       }
     ]

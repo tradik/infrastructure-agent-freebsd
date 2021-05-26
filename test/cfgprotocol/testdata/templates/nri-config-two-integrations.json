@@ -5,14 +5,11 @@
   "config": {
     "integrations": [
       {
-        "name": "nri-out-long-1",
+        "name": "spawner",
         "labels": {
           "timestamp": "{{.timestamp1}}"
         },
-        "exec": [
-          "go",
-          "run",
-          "testdata/go/spawner.go",
+        "cli_args": [
           "-path",
           "testdata/scenarios/shared/nri-out.json",
           "-nri-process-name",
@@ -23,14 +20,11 @@
         "interval": "2s"
       },
       {
-        "name": "nri-out-long-2",
+        "name": "spawner",
         "labels": {
           "timestamp": "{{.timestamp2}}"
         },
-        "exec": [
-          "go",
-          "run",
-          "testdata/go/spawner.go",
+        "cli_args": [
           "-path",
           "testdata/scenarios/shared/nri-out.json",
           "-nri-process-name",

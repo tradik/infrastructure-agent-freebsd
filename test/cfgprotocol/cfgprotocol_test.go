@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/newrelic/infrastructure-agent/internal/integrations/v4/testhelp"
 	"github.com/newrelic/infrastructure-agent/internal/testhelpers"
 	"github.com/newrelic/infrastructure-agent/test/cfgprotocol/agent"
 	"github.com/shirou/gopsutil/process"
@@ -25,7 +26,7 @@ const (
 			"Events":[
 				{
 					"displayName":"shell-test:some-entity","entityKey":"shell-test:some-entity","entityName":"shell-test:some-entity",
-					"eventType":"ShellTestSample","event_type":"ShellTestSample","integrationName":"nri-test","integrationVersion":"0.0.0",
+					"eventType":"ShellTestSample","event_type":"ShellTestSample","integrationName":"spawner","integrationVersion":"0.0.0",
 					"reportingAgent":"my_display_name","some-metric":1
 				}
 			]
@@ -39,8 +40,13 @@ const (
 )
 
 func createAgentAndStart(t *testing.T, scenario string) *agent.Emulator {
-	integrationsPath := filepath.Join("testdata", "scenarios", scenario)
-	a := agent.New(integrationsPath)
+	niDir, err := ioutil.TempDir("", "newrelic-integrations")
+	require.NoError(t, err)
+	spawnerDir := filepath.Join("testdata", "go", "spawner.go")
+	require.NoError(t, testhelp.GoBuild(testhelp.Script(spawnerDir), niDir))
+
+	integrationsConfigPath := filepath.Join("testdata", "scenarios", scenario)
+	a := agent.New(integrationsConfigPath, niDir)
 	require.NoError(t, a.RunAgent())
 	return a
 }
@@ -235,7 +241,7 @@ func Test_IntegrationConfigNewRelicInfraConfigurationIsRemoved(t *testing.T) {
 	}))
 	a := createAgentAndStart(t, "scenario4")
 	defer a.Terminate()
-	processNameRe := getProcessNameRegExp("nri-out-long")
+	processNameRe := getProcessNameRegExp("nri-out-long-4")
 	var p []*process.Process
 	var err error
 	testhelpers.Eventually(t, timeout, func(rt require.TestingT) {
