@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -104,6 +105,8 @@ type Store struct {
 	plugins pluginSource2Info
 	// stores time of last success submission of inventory to backend
 	lastSuccessSubmission time.Time
+	// mutex to deltas cache file
+	cacheMutex sync.Mutex
 }
 
 // NewStore creates a new Store and returns a pointer to it. If maxInventorySize <= 0, the inventory splitting is disabled
@@ -353,6 +356,12 @@ func (s *Store) UpdateState(entityKey string, deltas []*inventoryapi.RawDelta, d
 			}
 		}
 	}
+
+	err := s.SaveState()
+	if err != nil {
+		slog.WithField("entityKey", entityKey).WithError(err).Error("error flushing inventory to cache")
+	}
+
 	return
 }
 
@@ -429,6 +438,8 @@ func (s *Store) reconciliateWithBackend(pi *PluginInfo, entityKey string, result
 
 // SaveState writes on disk the plugin ID maps
 func (s *Store) SaveState() (err error) {
+	s.cacheMutex.Lock()
+	defer s.cacheMutex.Unlock()
 	if err = s.writePluginIDMap(); err != nil {
 		slog.WithError(err).Error("can't write plugin id maps")
 	}
