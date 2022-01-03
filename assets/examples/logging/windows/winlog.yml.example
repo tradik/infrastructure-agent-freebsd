@@ -1,6 +1,6 @@
 ###############################################################################
 # Log forwarder configuration winlog example                                  #
-# Source: windows event log                                                   #
+# Source: Windows event log                                                   #
 ###############################################################################
 logs:
   # Winlog log ingestion with eventId filters.
@@ -47,4 +47,3 @@ logs:
 # Add event IDs or ranges to collect-eventids or exclude-eventids to
 # forward or drop specific events. exclude-eventids takes precedence
 # over collect-eventids
-
