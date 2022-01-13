@@ -95,9 +95,7 @@ func (e *nonRegisterEmitter) Send(dto fwrequest.FwRequest) {
 			IntegrationLabels:           labels,
 			IntegrationExtraAnnotations: extraAnnotations,
 		}
-		metricsSender.SendMetrics(dmProcessor.ProcessMetrics(dataSet.Metrics, dataSet.Common, dataSet.Entity))
-
-		return nil
+		return metricsSender.SendMetricsWithCommonAttributes(dataSet.Common, dmProcessor.ProcessMetrics(dataSet.Metrics, dataSet.Entity))
 	}
 
 	for _, dataset := range integrationData.DataSets {

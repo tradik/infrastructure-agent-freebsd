@@ -23,14 +23,13 @@ type IntegrationProcessor struct {
 // ProcessMetrics metrics processing (decoration)
 func (p *IntegrationProcessor) ProcessMetrics(
 	metrics []protocol.Metric,
-	common protocol.Common,
 	entity entity.Fields) []protocol.Metric {
 	now := time.Now().Unix()
 
 	for i := range metrics {
-		p.addTimestamp(&metrics[i], common.Timestamp, &now)
-		p.addInterval(&metrics[i], common.Interval)
-		p.addAttributes(&metrics[i], common.Attributes)
+		p.addTimestamp(&metrics[i], nil, &now)
+		//jp.addInterval(&metrics[i], common.Interval)
+		//p.addAttributes(&metrics[i], common.Attributes)
 		p.addLabels(&metrics[i])
 		p.addExtraAnnotations(&metrics[i])
 		p.addAttributes(&metrics[i], entity.Metadata)

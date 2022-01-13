@@ -19,7 +19,7 @@ var logger = log.WithComponent("DimensionalMetricsSender")
 
 type MetricsSender interface {
 	SendMetrics(metrics []protocol.Metric)
-	SendMetricsWithCommonAttributes(commonAttributes protocol.Common, metrics []protocol.Metric) error
+	SendMetricsWithCommonAttributes(commonAttributes map[string]interface{}, metrics []protocol.Metric) error
 }
 
 type MetricsSenderConfig struct {
@@ -123,10 +123,10 @@ func (s *sender) SendMetrics(metrics []protocol.Metric) {
 	}
 }
 
-func (s *sender) SendMetricsWithCommonAttributes(commonAttributes protocol.Common, metrics []protocol.Metric) error {
+func (s *sender) SendMetricsWithCommonAttributes(commonAttributes map[string]interface{}, metrics []protocol.Metric) error {
 	dMetrics := s.convertMetrics(metrics)
 	if len(dMetrics) > 0 {
-		return s.harvester.RecordInfraMetrics(commonAttributes.Attributes, dMetrics)
+		return s.harvester.RecordInfraMetrics(commonAttributes, dMetrics)
 	}
 	return nil
 }

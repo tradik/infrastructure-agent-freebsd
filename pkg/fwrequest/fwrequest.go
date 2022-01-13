@@ -34,27 +34,27 @@ type EntityFwRequest struct {
 
 func (r *EntityFwRequest) RegisteredWith(id entity.ID) {
 	// attributes ID decoration
-	if r.Data.Common.Attributes == nil {
-		r.Data.Common.Attributes = make(map[string]interface{})
+	if r.Data.Common == nil {
+		r.Data.Common = make(map[string]interface{})
 	}
-	r.Data.Common.Attributes[EntityIdAttribute] = id.String()
+	r.Data.Common[EntityIdAttribute] = id.String()
 }
 
 func (r *EntityFwRequest) populateCommonAttributes(intMeta protocol.IntegrationMetadata, agentVersion string) {
-	if r.Data.Common.Attributes == nil {
-		r.Data.Common.Attributes = make(map[string]interface{})
+	if r.Data.Common == nil {
+		r.Data.Common = make(map[string]interface{})
 	}
-	r.Data.Common.Attributes[InstrumentationVersionAttribute] = intMeta.Version
-	r.Data.Common.Attributes[InstrumentationNameAttribute] = intMeta.Name
-	r.Data.Common.Attributes[InstrumentationProviderAttribute] = newRelicProvider
-	r.Data.Common.Attributes[CollectorNameAttribute] = agentCollector
-	r.Data.Common.Attributes[CollectorVersionAttribute] = agentVersion
+	r.Data.Common[InstrumentationVersionAttribute] = intMeta.Version
+	r.Data.Common[InstrumentationNameAttribute] = intMeta.Name
+	r.Data.Common[InstrumentationProviderAttribute] = newRelicProvider
+	r.Data.Common[CollectorNameAttribute] = agentCollector
+	r.Data.Common[CollectorVersionAttribute] = agentVersion
 }
 
 func (r *EntityFwRequest) ID() entity.ID {
 	// TODO candidate for optimization
-	if r.Data.Common.Attributes != nil {
-		if id, ok := r.Data.Common.Attributes[EntityIdAttribute]; ok {
+	if r.Data.Common != nil {
+		if id, ok := r.Data.Common[EntityIdAttribute]; ok {
 			if idStr, ok := id.(string); ok {
 				if idInt, err := strconv.Atoi(idStr); err == nil {
 					return entity.ID(idInt)

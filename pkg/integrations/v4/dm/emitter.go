@@ -238,7 +238,7 @@ func (e *emitter) processEntityFwRequest(r fwrequest.EntityFwRequest) {
 		IntegrationLabels:           labels,
 		IntegrationExtraAnnotations: annos,
 	}
-	metrics := dmProcessor.ProcessMetrics(r.Data.Metrics, r.Data.Common, r.Data.Entity)
+	metrics := dmProcessor.ProcessMetrics(r.Data.Metrics, r.Data.Entity)
 	if err := e.metricsSender.SendMetricsWithCommonAttributes(r.Data.Common, metrics); err != nil {
 		elog.WithField("entity", r.ID()).WithError(err).Warn("discarding metrics")
 	}

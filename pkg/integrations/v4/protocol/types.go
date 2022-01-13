@@ -39,17 +39,11 @@ type IntegrationMetadata struct {
 }
 
 type Dataset struct {
-	Common    Common                   `json:"common"`
+	Common    map[string]interface{}   `json:"common"`
 	Metrics   []Metric                 `json:"metrics"`
 	Entity    entity.Fields            `json:"entity"`
 	Inventory map[string]InventoryData `json:"inventory"`
 	Events    []EventData              `json:"events"`
-}
-
-type Common struct {
-	Timestamp  *int64                 `json:"timestamp"`
-	Interval   *int64                 `json:"interval.ms"`
-	Attributes map[string]interface{} `json:"attributes"`
 }
 
 type Metric struct {
@@ -169,9 +163,7 @@ func NewData(name, version string, ds []Dataset) DataV4 {
 // NewEventDataset creates a dataset with jsut a single event.
 func NewEventDataset(ts int64, event EventData) Dataset {
 	return Dataset{
-		Common: Common{
-			Timestamp: &ts,
-		},
+		Common: make(map[string]interface{}),
 		Events: []EventData{
 			event,
 		},
