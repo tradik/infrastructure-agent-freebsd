@@ -1058,6 +1058,27 @@ type Config struct {
 	// Default: empty
 	// Public: Yes
 	AgentMetricsEndpoint string `yaml:"agent_metrics_endpoint" envconfig:"agent_metrics_endpoint"`
+
+	// SelfInstrumentation Set the agent self instrumentation to be used (apm | otel)
+	// if empty the agent will not be self instrumented
+	// Default: empty
+	// Public: No
+	SelfInstrumentation string `yaml:"self_instrumentation" envconfig:"self_instrumentation"`
+
+	// SelfInstrumentationLicenseKey license key for apm self instrumentation
+	// Default: empty
+	// Public: No
+	SelfInstrumentationLicenseKey string `yaml:"self_instrumentation_license_key" envconfig:"self_instrumentation_license_key"`
+
+	// SelfInstrumentationApmEndpoint OpenTelemetry endpoint for self instrumentation
+	// Default: empty
+	// Public: No
+	SelfInstrumentationApmEndpoint string `yaml:"self_instrumentation_apm_endpoint" envconfig:"self_instrumentation_apm_endpoint"`
+
+	// SelfInstrumentationTelemetryEndpoint OpenTelemetry endpoint for self instrumentation
+	// Default: empty
+	// Public: No
+	SelfInstrumentationTelemetryEndpoint string `yaml:"self_instrumentation_telemetry_endpoint" envconfig:"self_instrumentation_telemetry_endpoint"`
 }
 
 // Troubleshoot trobleshoot mode configuration.
