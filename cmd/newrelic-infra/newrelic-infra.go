@@ -8,6 +8,7 @@ import (
 	context2 "context"
 	"flag"
 	"fmt"
+	selfInstrumentation "github.com/newrelic/infrastructure-agent/internal/agent/instrumentation"
 	"github.com/newrelic/infrastructure-agent/pkg/config/migrate"
 	"net"
 	"net/http"
@@ -329,6 +330,8 @@ func initializeAgentAndRun(c *config.Config, logFwCfg config.LogForward) error {
 		fatal(err, "Agent cannot initialize.")
 	}
 
+	selfInstrumentation.InitSelfInstrumentation(c)
+
 	defer agt.Terminate()
 
 	if err := initialize.AgentService(c); err != nil {
@@ -470,6 +473,7 @@ func initializeAgentAndRun(c *config.Config, logFwCfg config.LogForward) error {
 // By default is disabled and it only will be enabled if host:port are provided.
 // Using instrumentation.SetupPrometheusIntegrationConfig it will create prometheus
 // integration configuration (and delete it on agent shutdown process).
+// Deprecated: To be replaced by self instrumentation using APM|OpenTelemetry
 func initInstrumentation(ctx context2.Context, agentMetricsEndpoint string) (instrumentation.Instrumenter, error) {
 	if agentMetricsEndpoint == "" {
 		return instrumentation.NewNoop(), nil
