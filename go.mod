@@ -32,6 +32,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/procfs v0.6.0
+	github.com/rivo/tview v0.0.0-20220216162559-96063d6082f3
 	github.com/shirou/gopsutil/v3 v3.21.11
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
