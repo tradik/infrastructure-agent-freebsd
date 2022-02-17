@@ -149,6 +149,14 @@ func newVortexEventSender(ctx *context, licenseKey, userAgent string, httpClient
 	}
 }
 
+func (s *vortexEventSender) GetEventQueueCapAndSize() (int, int) {
+	return cap(s.eventQueue), len(s.eventQueue)
+}
+
+func (s *vortexEventSender) GetBatchQueueCapAndSize() (int, int) {
+	return cap(s.batchQueue), len(s.batchQueue)
+}
+
 func (s *vortexEventSender) Debug() bool {
 	return s.Context.Config().Debug
 }

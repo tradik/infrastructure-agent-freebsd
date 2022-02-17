@@ -24,18 +24,28 @@ const (
 	LoggedErrors
 	EventQueueDepthCapacity
 	EventQueueDepthSize
+	EventQueueDepthUtilization
+	BatchQueueDepthCapacity
+	BatchQueueDepthSize
+	BatchQueueDepthUtilization
 )
 
 var (
-	MetricsToRegister = map[MetricName]string{
+	CounterMetricsToRegister = map[MetricName]string{
 		DMRequestsForwarded:                         "dm.requests_forwarded",
 		DMDatasetsReceived:                          "dm.datasets_received",
 		EntityRegisterEntitiesRegistered:            "entity_register.entities_registered",
 		EntityRegisterEntitiesRegisteredWithWarning: "entity_register.entities_registered_with_warning",
 		EntityRegisterEntitiesRegistrationFailed:    "entity_register.entities_registration_failed",
 		LoggedErrors:                                "logged.errors",
-//		EventQueueDepthCapacity:                     "event_queue_depth_capacity",
-//		EventQueueDepthSize:                         "event_queue_depth_size",
+	}
+	GaugeMetricsToRegister = map[MetricName]string{
+		EventQueueDepthCapacity:    "event_queue_depth_capacity",
+		EventQueueDepthSize:        "event_queue_depth_size",
+		EventQueueDepthUtilization: "event_queue_depth_utilization",
+		BatchQueueDepthCapacity:    "batch_queue_depth_capacity",
+		BatchQueueDepthSize:        "batch_queue_depth_size",
+		BatchQueueDepthUtilization: "batch_queue_depth_utilization",
 	}
 )
 

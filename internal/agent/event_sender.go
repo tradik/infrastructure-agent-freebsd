@@ -61,6 +61,9 @@ type eventSender interface {
 	QueueEvent(event sample.Event, entity entity.Key) error // Queues the given event data for the entity identified by the given "entity" string
 	Start() error
 	Stop() error
+	GetEventQueueCapAndSize() (int, int)
+	GetBatchQueueCapAndSize() (int, int)
+
 }
 
 // Implementation of eventSender which periodically sends events to the metrics ingest endpoint.
@@ -124,6 +127,14 @@ func newMetricsIngestSender(ctx *context, licenseKey, userAgent string, httpClie
 		getBackoffTimer:          time.NewTimer,
 		postCount:                0,
 	}
+}
+
+func (sender *metricsIngestSender) GetEventQueueCapAndSize() (int, int) {
+	return cap(sender.eventQueue), len(sender.eventQueue)
+}
+
+func (sender *metricsIngestSender) GetBatchQueueCapAndSize() (int, int) {
+	return cap(sender.batchQueue), len(sender.batchQueue)
 }
 
 func (sender *metricsIngestSender) Debug() bool {

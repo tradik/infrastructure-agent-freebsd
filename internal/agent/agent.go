@@ -365,7 +365,18 @@ func (a *Agent) StartPromInstrumentationWatcher(measure promInstrumentation.Meas
 	for {
 		select {
 		case <-ticker.C:
-			measure(promInstrumentation.Gauge, promInstrumentation.EventQueueDepthCapacity, 300)
+			c, l := a.Context.eventSender.GetEventQueueCapAndSize()
+
+			measure(promInstrumentation.Gauge, promInstrumentation.EventQueueDepthCapacity, int64(c))
+			measure(promInstrumentation.Gauge, promInstrumentation.EventQueueDepthSize, int64(l))
+			// make it float
+			measure(promInstrumentation.Gauge, promInstrumentation.EventQueueDepthUtilization, int64(l/c*100))
+			c, l = a.Context.eventSender.GetBatchQueueCapAndSize()
+
+			measure(promInstrumentation.Gauge, promInstrumentation.BatchQueueDepthCapacity, int64(c))
+			measure(promInstrumentation.Gauge, promInstrumentation.BatchQueueDepthSize, int64(l))
+			// make it float
+			measure(promInstrumentation.Gauge, promInstrumentation.BatchQueueDepthUtilization, int64(l/c*100))
 		}
 	}
 

@@ -31,6 +31,8 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_model v0.2.0
+	github.com/prometheus/common v0.10.0
 	github.com/prometheus/procfs v0.6.0
 	github.com/rivo/tview v0.0.0-20220216162559-96063d6082f3
 	github.com/shirou/gopsutil/v3 v3.21.11

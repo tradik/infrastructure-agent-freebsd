@@ -5,20 +5,19 @@ package instrumentation
 
 import (
 	"context"
-	"net/http"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/api/metric"
 	oprometheus "go.opentelemetry.io/otel/exporters/metric/prometheus"
 	"go.opentelemetry.io/otel/label"
+	"net/http"
 )
 
 type instrumentation struct {
 	handler  *oprometheus.Exporter
 	meter    *metric.Meter
 	counters map[MetricName]metric.Int64Counter
-	gauges   map[MetricName]metric.Int64ValueRecorder
+	gauges   map[MetricName]prometheus.Gauge
 }
 
 func (i instrumentation) GetHandler() http.Handler {
@@ -28,17 +27,13 @@ func (i instrumentation) GetHandler() http.Handler {
 func (i instrumentation) Measure(metricType MetricType, name MetricName, val int64) {
 	switch metricType {
 	case Gauge:
-		i.meter.RecordBatch(
-			context.Background(),
-			[]label.KeyValue{},
-			i.gauges[name].Measurement(val))
+		i.gauges[name].Set(float64(val))
 	case Counter:
 		i.meter.RecordBatch(
 			context.Background(),
 			[]label.KeyValue{},
 			i.counters[name].Measurement(val))
 	default:
-
 	}
 }
 
@@ -55,6 +50,21 @@ func New() (Instrumenter, error) {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	registry.MustRegister(prometheus.NewGoCollector())
+
+	gauges := make(map[MetricName]prometheus.Gauge, 2)
+
+	for metricName, metricRegistrationName := range GaugeMetricsToRegister {
+		opsQueued := prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "newrelic_infra",
+			Subsystem: "instrumentation",
+			Name:      metricRegistrationName,
+			Help:      "TODO",
+		})
+
+		registry.MustRegister(opsQueued)
+		gauges[metricName] = opsQueued
+	}
+
 	prometheusExporter, err := oprometheus.InstallNewPipeline(oprometheus.Config{
 		Registry: registry,
 	})
@@ -64,13 +74,10 @@ func New() (Instrumenter, error) {
 	meter := prometheusExporter.MeterProvider().Meter("newrelic.infra")
 
 	counters := make(map[MetricName]metric.Int64Counter, 2)
-	gauges := make(map[MetricName]metric.Int64ValueRecorder, 2)
 
-	for metricName, metricRegistrationName := range MetricsToRegister {
+	for metricName, metricRegistrationName := range CounterMetricsToRegister {
 		counters[metricName] = metric.Must(meter).NewInt64Counter("newrelic.infra/instrumentation." + metricRegistrationName)
 	}
-
-	gauges[EventQueueDepthCapacity] = metric.Must(meter).NewInt64ValueRecorder("newrelic.infra/instrumentation." + "event_queue_depth_capacity")
 
 	return &instrumentation{
 		handler:  prometheusExporter,

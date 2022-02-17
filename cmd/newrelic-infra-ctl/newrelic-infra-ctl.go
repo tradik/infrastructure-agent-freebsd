@@ -119,12 +119,22 @@ func startGridUI() {
 				}
 				statsView.Clear()
 
-				fmt.Fprintf(statsView, "  Agent runtime telemetry\n")
+				fmt.Fprintf(statsView, "  Agent runtime telemetry\n  ---\n")
 				fmt.Fprintf(statsView, "  go_memstats_alloc_bytes : %2.f MB\n", (*metrics["go_memstats_alloc_bytes"].Metric[0].Gauge.Value)/1024.0/1024.0)
-				//fmt.Fprintf(statsView, "  Queues\n")
-				//fmt.Fprintf(statsView, "  event_queue_depth capacity: %d\n",
-				//	metrics["event_queue_depth_capacity"].Metric[0].Gauge.Value)
-				//fmt.Fprintf(statsView, "  batch_queue_depth zise: %d\n", 100)
+				fmt.Fprintf(statsView, "  go_memstats_heap_inuse_bytes : %2.f MB\n", (*metrics["go_memstats_heap_inuse_bytes"].Metric[0].Gauge.Value)/1024.0/1024.0)
+				fmt.Fprintf(statsView, "  go_goroutines : %0.f\n", *metrics["go_goroutines"].Metric[0].Gauge.Value)
+				fmt.Fprintf(statsView, "  go_threads : %0.f\n", *metrics["go_threads"].Metric[0].Gauge.Value)
+				fmt.Fprintf(statsView, "  Queues\n  ---\n")
+				fmt.Fprintf(statsView, "  event_queue_depth %0.f/%0.f %0.f%%\n",
+					*metrics["newrelic_infra_instrumentation_event_queue_depth_size"].Metric[0].Gauge.Value,
+					*metrics["newrelic_infra_instrumentation_event_queue_depth_capacity"].Metric[0].Gauge.Value,
+					*metrics["newrelic_infra_instrumentation_event_queue_depth_utilization"].Metric[0].Gauge.Value, //.Metric[0].Gauge.Value,
+				)
+				fmt.Fprintf(statsView, "  batch_queue_depth %0.f/%0.f %0.f%%\n",
+					*metrics["newrelic_infra_instrumentation_batch_queue_depth_size"].Metric[0].Gauge.Value,
+					*metrics["newrelic_infra_instrumentation_batch_queue_depth_capacity"].Metric[0].Gauge.Value,
+					*metrics["newrelic_infra_instrumentation_batch_queue_depth_utilization"].Metric[0].Gauge.Value, //.Metric[0].Gauge.Value,
+				)
 			}
 		}
 
