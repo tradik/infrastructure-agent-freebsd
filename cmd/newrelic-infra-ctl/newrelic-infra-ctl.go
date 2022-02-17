@@ -5,17 +5,21 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
-	"github.com/gdamore/tcell/v2"
 	"github.com/newrelic/infrastructure-agent/pkg/config"
 	"github.com/newrelic/infrastructure-agent/pkg/ctl/sender"
+	"github.com/prometheus/common/expfmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"runtime"
 	"strings"
 
 	"github.com/rivo/tview"
+	dto "github.com/prometheus/client_model/go"
 )
 
 var (
@@ -72,12 +76,12 @@ func main() {
 	//}
 
 	//logrus.Infof("Notification successfully sent to the NRI Agent with ID '%s'", client.GetID())
-	//startUI()
-	createGrid()
+	startGridUI()
 }
 
-func startUI() {
+func startGridUI() {
 	app := tview.NewApplication()
+
 	list := tview.NewList().
 		AddItem("Start memory profiler", "Start memory profiler with interval 5s and filePath /tmp/agent_mem_profile_ ", 0, func() {
 			startMemoryProfiler(5, "/tmp/agent_mem_profile_")
@@ -89,63 +93,28 @@ func startUI() {
 		}).
 		AddItem("Quit", "Press to exit [ESC]", 'q', func() {
 			app.Stop()
-		}).
-		SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-			if event.Key() == tcell.KeyEscape {
-				app.Stop()
-				return nil
-			}
-			return event
 		})
 
-	if err := app.SetRoot(list, true).EnableMouse(true).Run(); err != nil {
-		panic(err)
-	}
-}
-
-func createGrid() {
-	newPrimitive := func(text string) tview.Primitive {
-		return tview.NewTextView().
-			SetTextAlign(tview.AlignCenter).
-			SetText(text)
-	}
-
-	app := tview.NewApplication()
-
-	list := tview.NewList().
-		AddItem("Start memory profiler", "Start memory profiler with interval 300s ", '0', func() {
-			startMemoryProfiler(5, "/tmp/agent_mem_profile_")
-		}).
-		AddItem("Start memory profiler", "Start memory profiler with interval 300s ", '0', func() {
-			stopMemoryProfiler()
-		}).
-		AddItem("PING", "Start memory profiler with interval 300s ", 0, func() {
-			fmt.Println("PING")
-		}).
-		AddItem("Quit", "Press to exit", 'q', func() {
-			app.Stop()
+	statsView := tview.NewTextView().
+		SetDynamicColors(true).
+		SetRegions(true).
+		SetWordWrap(true).
+		SetChangedFunc(func() {
+			app.Draw()
 		})
 
-	//menu := newPrimitive("Menu")
-	main := newPrimitive("Main content")
-	sideBar := newPrimitive("Side Bar")
+	fmt.Fprintf(statsView, "  Agent runtime telemetry\n")
+	fmt.Fprintf(statsView, "  mem used: %d MB\n", 100)
+	fmt.Fprintf(statsView, "  Queues\n")
+	fmt.Fprintf(statsView, "  event_queue_depth: %d\n", 100)
+	fmt.Fprintf(statsView, "  batch_queue_depth: %d\n", 100)
 
 	grid := tview.NewGrid().
-		SetRows(3, 0, 3).
-		//SetColumns(30, 0, 30).
-		SetBorders(true).
-		AddItem(newPrimitive("Header"), 0, 0, 1, 3, 0, 0, false).
-		AddItem(newPrimitive("Footer"), 2, 0, 1, 3, 0, 0, false)
+		SetRows(1, 0, 1).
+		SetBorders(true)
 
-	// Layout for screens narrower than 100 cells (menu and side bar are hidden).
-	grid.AddItem(list, 0, 0, 0, 0, 0, 0, false).
-		AddItem(main, 1, 0, 1, 3, 0, 0, false).
-		AddItem(sideBar, 0, 0, 0, 0, 0, 0, false)
-
-	// Layout for screens wider than 100 cells.
-	grid.AddItem(list, 1, 0, 1, 1, 0, 100, false).
-		AddItem(main, 1, 1, 1, 1, 0, 100, false).
-		AddItem(sideBar, 1, 2, 1, 1, 0, 100, false)
+	grid.AddItem(list, 1, 0, 1, 1, 0, 0, true).
+		AddItem(statsView, 1, 1, 1, 1, 0, 0, false)
 
 	app.SetFocus(list)
 
@@ -185,4 +154,57 @@ func getClient() (sender.Client, error) {
 		return sender.NewContainerisedClient(apiVersion, containerID)
 	}
 	return sender.NewAutoDetectedClient(apiVersion)
+}
+
+// Copy from https://github.com/newrelic/nri-prometheus/blob/main/internal/pkg/prometheus/prometheus.go
+
+// MetricFamiliesByName is a map of Prometheus metrics family names and their
+// representation.
+type MetricFamiliesByName map[string]dto.MetricFamily
+
+// HTTPDoer executes http requests. It is implemented by *http.Client.
+type HTTPDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// acceptHeader from Prometheus server https://github.com/prometheus/prometheus/blob/v2.33.1/scrape/scrape.go#L751
+const acceptHeader = `application/openmetrics-text;version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`
+
+func Get(client HTTPDoer, url string) (MetricFamiliesByName, error) {
+	mfs := MetricFamiliesByName{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return mfs, err
+	}
+
+	req.Header.Add("Accept", acceptHeader)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return mfs, err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 300 {
+		return nil, fmt.Errorf("status code returned by the prometheus exporter indicates an error occurred: %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return mfs, err
+	}
+	r := bytes.NewReader(body)
+
+	d := expfmt.NewDecoder(r, expfmt.FmtText)
+	for {
+		var mf dto.MetricFamily
+		if err := d.Decode(&mf); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		mfs[mf.GetName()] = mf
+	}
+
+	return mfs, nil
 }
