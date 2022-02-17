@@ -17,9 +17,10 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
+	"time"
 
-	"github.com/rivo/tview"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/rivo/tview"
 )
 
 var (
@@ -103,11 +104,29 @@ func startGridUI() {
 			app.Draw()
 		})
 
-	fmt.Fprintf(statsView, "  Agent runtime telemetry\n")
-	fmt.Fprintf(statsView, "  mem used: %d MB\n", 100)
-	fmt.Fprintf(statsView, "  Queues\n")
-	fmt.Fprintf(statsView, "  event_queue_depth: %d\n", 100)
-	fmt.Fprintf(statsView, "  batch_queue_depth: %d\n", 100)
+	client := &http.Client{}
+	go func(statsView *tview.TextView) {
+
+		ticker := time.NewTicker(time.Second)
+
+		for {
+			select {
+			case <-ticker.C:
+				metrics, err := Get(client, "http://localhost:9090")
+				if err != nil {
+					panic(err)
+				}
+				statsView.Clear()
+
+				fmt.Fprintf(statsView, "  Agent runtime telemetry\n")
+				fmt.Fprintf(statsView, "  go_memstats_alloc_bytes : %2.f MB\n", (*metrics["go_memstats_alloc_bytes"].Metric[0].Gauge.Value)/1024.0/1024.0)
+				fmt.Fprintf(statsView, "  Queues\n")
+				fmt.Fprintf(statsView, "  event_queue_depth: %d\n", 100)
+				fmt.Fprintf(statsView, "  batch_queue_depth: %d\n", 100)
+			}
+		}
+
+	}(statsView)
 
 	grid := tview.NewGrid().
 		SetRows(1, 0, 1).
