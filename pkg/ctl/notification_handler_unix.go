@@ -119,7 +119,7 @@ func handleSignals(retCh chan<- ipc.Message, shutdownCh chan shutdownCmd, sdw sh
 				}
 
 			case signals.Notification:
-				retCh <- ipc.EnableVerboseLogging
+				retCh <- ipc.EnableAgentAPI
 			default:
 				nlog.WithField("signal", sig).Info("did not recognise received signal")
 			}

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	EnableVerboseLogging Message = signals.NotificationStr
-	Stop                 Message = signals.GracefulStopStr
-	Shutdown             Message = signals.GracefulShutdownStr
+	EnableAgentAPI Message = signals.NotificationStr
+	Stop           Message = signals.GracefulStopStr
+	Shutdown       Message = signals.GracefulShutdownStr
 )

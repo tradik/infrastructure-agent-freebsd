@@ -67,7 +67,7 @@ func main() {
 	}
 
 	// Default message is "enable verbose logging" to maintain backwards compatibility.
-	msg := ipc.EnableVerboseLogging
+	msg := ipc.EnableAgentAPI
 	logrus.Debug("Sending message to agent: " + fmt.Sprint(msg))
 	if err := client.Notify(ctx, msg); err != nil {
 		logrus.WithError(err).Fatal("Error occurred while notifying the NRI Agent.")

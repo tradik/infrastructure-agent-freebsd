@@ -6,6 +6,7 @@ import (
 	context2 "context"
 	"fmt"
 	"github.com/newrelic/infrastructure-agent/internal/agent/instrumentation"
+	"github.com/newrelic/infrastructure-agent/pkg/entity/host"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +19,6 @@ import (
 	"time"
 
 	"github.com/newrelic/infrastructure-agent/internal/feature_flags"
-	"github.com/newrelic/infrastructure-agent/pkg/entity/host"
 	"github.com/newrelic/infrastructure-agent/pkg/metrics/sampler"
 	"github.com/newrelic/infrastructure-agent/pkg/trace"
 
@@ -82,6 +82,7 @@ type Agent struct {
 	agentID             *entity.ID                               // pointer as it's referred from several points
 	mtx                 sync.Mutex                               // Protect plugins
 	notificationHandler *ctl.NotificationHandlerWithCancellation // Handle ipc messaging.
+	apiServer           *ApiServer
 }
 
 type inventoryState struct {
@@ -397,7 +398,7 @@ func New(
 
 	// register handlers for ipc messaging
 	// for linux only "verbose logging" is handled
-	notificationHandler.RegisterHandler(ipc.EnableVerboseLogging, a.enableVerboseLogging)
+	notificationHandler.RegisterHandler(ipc.EnableAgentAPI, a.toggleAgentAPI)
 	notificationHandler.RegisterHandler(ipc.Stop, a.gracefulStop)
 	notificationHandler.RegisterHandler(ipc.Shutdown, a.gracefulShutdown)
 
@@ -434,6 +435,10 @@ func New(
 	} else {
 		a.Context.eventSender = newMetricsIngestSender(a.Context, cfg.License, a.userAgent, a.httpClient, cfg.ConnectEnabled)
 	}
+
+	a.apiServer = NewApiServer(cfg, a)
+	//TODO REMOVE ME just for test
+	a.apiServer.Start()
 
 	return a, nil
 }
@@ -666,7 +671,7 @@ func (a *Agent) Run() (err error) {
 		defer a.cpuProfileStop(f)
 	}
 
-	go a.intervalMemoryProfile()
+	go a.intervalMemoryProfile(a.Context.Ctx)
 
 	if cfg.ConnectEnabled {
 		go a.connect()
@@ -868,10 +873,9 @@ func (a *Agent) cpuProfileStop(f *os.File) {
 	helpers.CloseQuietly(f)
 }
 
-func (a *Agent) intervalMemoryProfile() {
+func (a *Agent) intervalMemoryProfile(ctx context2.Context) {
 
 	cfg := a.Context.cfg
-
 	if cfg.MemProfileInterval <= 0 {
 		return
 	}
@@ -885,6 +889,9 @@ func (a *Agent) intervalMemoryProfile() {
 		case <-ticker.C:
 			a.dumpMemoryProfile(counter * cfg.MemProfileInterval)
 			counter++
+		case <-ctx.Done():
+			ticker.Stop()
+			return
 		}
 	}
 
@@ -1157,13 +1164,15 @@ func (a *Agent) connect() {
 	}
 }
 
-func (a *Agent) enableVerboseLogging() error {
-	alog.Debug("Enabling temporary verbose logging.")
-	log.EnableTemporaryVerbose()
+func (a *Agent) toggleAgentAPI() error {
+	alog.Info("Enabling agent api ")
 
-	a.LogExternalPluginsInfo()
-	a.Context.cfg.LogInfo()
-	a.ExternalPluginsHealthCheck()
+	a.apiServer.Toogle()
+	//log.EnableTemporaryVerbose()
+	//
+	//a.LogExternalPluginsInfo()
+	//a.Context.cfg.LogInfo()
+	//a.ExternalPluginsHealthCheck()
 	return nil
 }
 

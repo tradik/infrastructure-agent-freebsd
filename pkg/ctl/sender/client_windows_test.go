@@ -52,7 +52,7 @@ func TestNewClient(t *testing.T) {
 
 	assert.NoError(t, err)
 
-	err = c.Notify(nil, ipc.EnableVerboseLogging)
+	err = c.Notify(nil, ipc.EnableAgentAPI)
 	assert.NoError(t, err)
 	<-ready
 }
@@ -65,7 +65,7 @@ func TestEnableVerboseMissingPipe(t *testing.T) {
 	pipeName := getPipeName(t)
 	c, err := NewClientWithName(0, pipeName)
 
-	err = c.Notify(nil, ipc.EnableVerboseLogging)
+	err = c.Notify(nil, ipc.EnableAgentAPI)
 	assert.EqualError(t, err, fmt.Sprintf("open %s: The system cannot find the file specified.", pipeName))
 }
 

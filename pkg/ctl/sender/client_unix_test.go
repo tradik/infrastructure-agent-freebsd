@@ -64,7 +64,7 @@ func Test_procClient_EnableVerbose(t *testing.T) {
 
 	c, err := NewClient(os.Getpid())
 	assert.NoError(t, err)
-	assert.NoError(t, c.Notify(context.Background(), ipc.EnableVerboseLogging))
+	assert.NoError(t, c.Notify(context.Background(), ipc.EnableAgentAPI))
 	wg.Wait()
 	// verbose signal was sent
 	assert.Equal(t, signals.Notification, receivedSignal)
