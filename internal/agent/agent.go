@@ -6,6 +6,7 @@ import (
 	context2 "context"
 	"fmt"
 	"github.com/newrelic/infrastructure-agent/internal/agent/instrumentation"
+	promInstrumentation "github.com/newrelic/infrastructure-agent/internal/instrumentation"
 	"github.com/newrelic/infrastructure-agent/pkg/entity/host"
 	"net/http"
 	"os"
@@ -355,6 +356,19 @@ func NewAgent(
 		fpHarvester,
 		notificationHandler,
 	)
+}
+
+func (a *Agent) StartPromInstrumentationWatcher(measure promInstrumentation.Measure) {
+
+	ticker := time.NewTicker(time.Second)
+
+	for {
+		select {
+		case <-ticker.C:
+			measure(promInstrumentation.Gauge, promInstrumentation.EventQueueDepthCapacity, 300)
+		}
+	}
+
 }
 
 // New creates a new agent using given context and services.

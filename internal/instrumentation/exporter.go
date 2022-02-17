@@ -18,6 +18,7 @@ type instrumentation struct {
 	handler  *oprometheus.Exporter
 	meter    *metric.Meter
 	counters map[MetricName]metric.Int64Counter
+	gauges   map[MetricName]metric.Int64ValueRecorder
 }
 
 func (i instrumentation) GetHandler() http.Handler {
@@ -25,10 +26,20 @@ func (i instrumentation) GetHandler() http.Handler {
 }
 
 func (i instrumentation) Measure(metricType MetricType, name MetricName, val int64) {
-	i.meter.RecordBatch(
-		context.Background(),
-		[]label.KeyValue{},
-		i.counters[name].Measurement(val))
+	switch metricType {
+	case Gauge:
+		i.meter.RecordBatch(
+			context.Background(),
+			[]label.KeyValue{},
+			i.gauges[name].Measurement(val))
+	case Counter:
+		i.meter.RecordBatch(
+			context.Background(),
+			[]label.KeyValue{},
+			i.counters[name].Measurement(val))
+	default:
+
+	}
 }
 
 func (i instrumentation) GetHttpTransport(base http.RoundTripper) http.RoundTripper {
@@ -53,14 +64,18 @@ func New() (Instrumenter, error) {
 	meter := prometheusExporter.MeterProvider().Meter("newrelic.infra")
 
 	counters := make(map[MetricName]metric.Int64Counter, 2)
+	gauges := make(map[MetricName]metric.Int64ValueRecorder, 2)
 
-	for metricName, metricRegistrationName := range metricsToRegister {
+	for metricName, metricRegistrationName := range MetricsToRegister {
 		counters[metricName] = metric.Must(meter).NewInt64Counter("newrelic.infra/instrumentation." + metricRegistrationName)
 	}
+
+	gauges[EventQueueDepthCapacity] = metric.Must(meter).NewInt64ValueRecorder("newrelic.infra/instrumentation." + "event_queue_depth_capacity")
 
 	return &instrumentation{
 		handler:  prometheusExporter,
 		counters: counters,
+		gauges:   gauges,
 		meter:    &meter,
 	}, err
 }

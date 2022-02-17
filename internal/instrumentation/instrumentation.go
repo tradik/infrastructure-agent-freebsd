@@ -22,16 +22,20 @@ const (
 	EntityRegisterEntitiesRegisteredWithWarning
 	EntityRegisterEntitiesRegistrationFailed
 	LoggedErrors
+	EventQueueDepthCapacity
+	EventQueueDepthSize
 )
 
 var (
-	metricsToRegister = map[MetricName]string{
+	MetricsToRegister = map[MetricName]string{
 		DMRequestsForwarded:                         "dm.requests_forwarded",
 		DMDatasetsReceived:                          "dm.datasets_received",
 		EntityRegisterEntitiesRegistered:            "entity_register.entities_registered",
 		EntityRegisterEntitiesRegisteredWithWarning: "entity_register.entities_registered_with_warning",
 		EntityRegisterEntitiesRegistrationFailed:    "entity_register.entities_registration_failed",
 		LoggedErrors:                                "logged.errors",
+//		EventQueueDepthCapacity:                     "event_queue_depth_capacity",
+//		EventQueueDepthSize:                         "event_queue_depth_size",
 	}
 )
 

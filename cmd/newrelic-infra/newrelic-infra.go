@@ -344,6 +344,8 @@ func initializeAgentAndRun(c *config.Config, logFwCfg config.LogForward) error {
 	}
 	wlog.Instrument(instruments.Measure)
 
+	go agt.StartPromInstrumentationWatcher(instruments.Measure)
+
 	metricsSenderConfig := dm.NewConfig(c.DMIngestURL(), c.Fedramp, c.License, time.Duration(c.DMSubmissionPeriod)*time.Second, c.MaxMetricBatchEntitiesCount, c.MaxMetricBatchEntitiesQueue)
 	dmSender, err := dm.NewDMSender(metricsSenderConfig, transport, agt.Context.IdContext().AgentIdentity)
 	if err != nil {
@@ -473,7 +475,6 @@ func initializeAgentAndRun(c *config.Config, logFwCfg config.LogForward) error {
 // By default is disabled and it only will be enabled if host:port are provided.
 // Using instrumentation.SetupPrometheusIntegrationConfig it will create prometheus
 // integration configuration (and delete it on agent shutdown process).
-// Deprecated: To be replaced by self instrumentation using APM|OpenTelemetry
 func initInstrumentation(ctx context2.Context, agentMetricsEndpoint string) (instrumentation.Instrumenter, error) {
 	if agentMetricsEndpoint == "" {
 		return instrumentation.NewNoop(), nil

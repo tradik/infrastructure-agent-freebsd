@@ -21,6 +21,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 	"github.com/rivo/tview"
+	//promInstrumentation "github.com/newrelic/infrastructure-agent/internal/instrumentation"
 )
 
 var (
@@ -120,9 +121,10 @@ func startGridUI() {
 
 				fmt.Fprintf(statsView, "  Agent runtime telemetry\n")
 				fmt.Fprintf(statsView, "  go_memstats_alloc_bytes : %2.f MB\n", (*metrics["go_memstats_alloc_bytes"].Metric[0].Gauge.Value)/1024.0/1024.0)
-				fmt.Fprintf(statsView, "  Queues\n")
-				fmt.Fprintf(statsView, "  event_queue_depth: %d\n", 100)
-				fmt.Fprintf(statsView, "  batch_queue_depth: %d\n", 100)
+				//fmt.Fprintf(statsView, "  Queues\n")
+				//fmt.Fprintf(statsView, "  event_queue_depth capacity: %d\n",
+				//	metrics["event_queue_depth_capacity"].Metric[0].Gauge.Value)
+				//fmt.Fprintf(statsView, "  batch_queue_depth zise: %d\n", 100)
 			}
 		}
 
