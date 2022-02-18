@@ -127,7 +127,16 @@ func (s *ApiServer) handleProfilerStart(writer http.ResponseWriter, request *htt
 	s.cnf.MemProfileInterval = m.MemProfileInterval
 	s.cnf.MemProfile = m.MemProfile
 
-	s.agent.intervalMemoryProfile(s.profilerContext)
+	go s.agent.intervalMemoryProfile(s.profilerContext)
+
+	writer.WriteHeader(http.StatusOK)
+	//writer.Header().Set("Content-Type", "application/json")
+	//resp := make(map[string]string)
+	//jsonResp, err := json.Marshal(resp)
+	//if err != nil {
+	//	log.Fatalf("Error happened in JSON marshal. Err: %s", err)
+	//}
+	//w.Write(jsonResp)
 }
 
 func (s *ApiServer) handleProfilerStop(writer http.ResponseWriter, request *http.Request, params httprouter.Params) {

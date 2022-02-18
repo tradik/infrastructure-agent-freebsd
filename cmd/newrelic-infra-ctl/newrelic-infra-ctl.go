@@ -198,7 +198,10 @@ func startGridUI() {
 }
 
 func startMemoryProfiler(interval int, filepath string) {
-	_, err := http.Post(
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	_, err := client.Post(
 		"http://localhost:8083/profiler-start",
 		"application/json",
 		strings.NewReader(fmt.Sprintf(`{"mem_profile":"%s","mem_profile_interval":%d}`, filepath, interval)),
@@ -209,7 +212,10 @@ func startMemoryProfiler(interval int, filepath string) {
 }
 
 func stopMemoryProfiler() {
-	_, err := http.Post(
+	client := http.Client{
+		Timeout: 5 * time.Second,
+	}
+	_, err := client.Post(
 		"http://localhost:8083/profiler-stop",
 		"application/json",
 		strings.NewReader("{}"),
