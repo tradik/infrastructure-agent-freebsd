@@ -462,8 +462,6 @@ func New(
 	}
 
 	a.apiServer = NewApiServer(cfg, a)
-	//TODO REMOVE ME just for test
-	a.apiServer.Start()
 
 	return a, nil
 }

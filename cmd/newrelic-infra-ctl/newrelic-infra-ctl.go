@@ -6,21 +6,30 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"flag"
 	"fmt"
-	"github.com/newrelic/infrastructure-agent/pkg/config"
-	"github.com/newrelic/infrastructure-agent/pkg/ctl/sender"
-	"github.com/prometheus/common/expfmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
+	"os/signal"
 	"runtime"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/newrelic/infrastructure-agent/pkg/config"
+	"github.com/newrelic/infrastructure-agent/pkg/ctl/sender"
+	"github.com/newrelic/infrastructure-agent/pkg/ipc"
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 	"github.com/rivo/tview"
+	"github.com/sirupsen/logrus"
 	//promInstrumentation "github.com/newrelic/infrastructure-agent/internal/instrumentation"
 )
 
@@ -54,31 +63,65 @@ func init() {
 }
 
 func main() {
+	interactive := len(os.Args) == 1
+	if interactive {
+		interactiveMode()
+		return
+	}
+	cliMode()
+}
+
+func interactiveMode() {
+	agentPid, err := getAgentPID()
+	if err != nil {
+		log.Fatalln("Cannot get the infrastructure-agent PID %w", err)
+	}
+
+	ctx := context.Background()
+	client, err := getClient(agentPid)
+	if err != nil {
+		log.Fatalln("Cannot get get client: %w", err)
+	}
+	enableAgentApi(ctx, client)
+	startGridUI()
+}
+
+func cliMode() {
 	flag.Parse()
 
-	//ctx, cancel := context.WithCancel(context.Background())
-	//// Enables Control+C termination
-	//go func() {
-	//	s := make(chan os.Signal, 1)
-	//	signal.Notify(s, syscall.SIGQUIT)
-	//	<-s
-	//	cancel()
-	//}()
+	ctx, cancel := context.WithCancel(context.Background())
+	// Enables Control+C termination
+	go func() {
+		s := make(chan os.Signal, 1)
+		signal.Notify(s, syscall.SIGQUIT)
+		<-s
+		cancel()
+	}()
 
-	//client, err := getClient()
-	//if err != nil {
-	//	logrus.WithError(err).Fatal("Failed to initialize the notification client.")
-	//}
-	//
-	//// Default message is "enable verbose logging" to maintain backwards compatibility.
-	//msg := ipc.EnableAgentAPI
-	//logrus.Debug("Sending message to agent: " + fmt.Sprint(msg))
-	//if err := client.Notify(ctx, msg); err != nil {
-	//	logrus.WithError(err).Fatal("Error occurred while notifying the NRI Agent.")
-	//}
+	client, err := getClient(agentPID)
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to initialize the notification client.")
+	}
+	enableAgentApi(ctx, client)
+	logrus.Infof("Notification successfully sent to the NRI Agent with ID '%s'", client.GetID())
 
-	//logrus.Infof("Notification successfully sent to the NRI Agent with ID '%s'", client.GetID())
-	startGridUI()
+}
+
+func enableAgentApi(ctx context.Context, client sender.Client) {
+	msg := ipc.EnableAgentAPI
+	logrus.Debug("Sending message to agent: " + fmt.Sprint(msg))
+	if err := client.Notify(ctx, msg); err != nil {
+		logrus.WithError(err).Fatal("Error occurred while notifying the NRI Agent.")
+	}
+}
+
+func getAgentPID() (int, error) {
+	cmd := exec.Command("pgrep", "-n", "^newrelic-infra$")
+	outputCommand, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0, errors.New("error executing pgrep")
+	}
+	return strconv.Atoi(strings.TrimSpace(string(outputCommand)))
 }
 
 func startGridUI() {
@@ -177,9 +220,9 @@ func stopMemoryProfiler() {
 }
 
 // getClient returns an agent notification client.
-func getClient() (sender.Client, error) {
-	if runtime.GOOS == "windows" || agentPID != 0 {
-		return sender.NewClient(agentPID)
+func getClient(pid int) (sender.Client, error) {
+	if runtime.GOOS == "windows" || pid != 0 {
+		return sender.NewClient(pid)
 	}
 	if containerID != "" {
 		return sender.NewContainerisedClient(apiVersion, containerID)
