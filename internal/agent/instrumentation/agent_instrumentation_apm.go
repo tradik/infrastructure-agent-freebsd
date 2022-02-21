@@ -3,19 +3,24 @@ package instrumentation
 import (
 	"context"
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/newrelic/infrastructure-agent/pkg/sysinfo/hostname"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"net/http"
 )
 
 const transactionInContextKey = iota
 
+const appName = "New Relic Infrastructure Agent"
+
 type agentInstrumentationApm struct {
-	nrApp     *newrelic.Application
-	harvester *telemetry.Harvester
+	nrApp            *newrelic.Application
+	harvester        *telemetry.Harvester
+	hostnameResolver hostname.Resolver
 }
 
 func (a *agentInstrumentationApm) RecordMetric(ctx context.Context, metric metric) {
 	var m telemetry.Metric
+	metric = a.addHostName(metric)
 	switch metric.Type {
 	case Gauge:
 		m = telemetry.Gauge{
@@ -38,6 +43,16 @@ func (a *agentInstrumentationApm) StartTransaction(ctx context.Context, name str
 	ctx = ContextWithTransaction(ctx, txn)
 
 	return ctx, txn
+}
+
+func (a *agentInstrumentationApm) addHostName(metric metric) metric {
+	if metric.Attributes == nil {
+		metric.Attributes = make(map[string]interface{})
+	}
+	if _, ok := metric.Attributes["hostname"]; !ok {
+		metric.Attributes["hostname"] = a.hostnameResolver.Long()
+	}
+	return metric
 }
 
 type TransactionApm struct {
@@ -77,9 +92,9 @@ func (t *SegmentApm) End() {
 	t.nrSeg.End()
 }
 
-func NewAgentInstrumentationApm(license string, displayName string, apmEndpoint string, telemetryEndpoint string) (AgentInstrumentation, error) {
+func NewAgentInstrumentationApm(license string, apmEndpoint string, telemetryEndpoint string, resolver hostname.Resolver) (AgentInstrumentation, error) {
 	nrApp, err := newrelic.NewApplication(
-		newrelic.ConfigAppName(displayName),
+		newrelic.ConfigAppName(appName),
 		newrelic.ConfigLicense(license),
 		newrelic.ConfigDistributedTracerEnabled(true),
 		func(c *newrelic.Config) {
@@ -104,5 +119,5 @@ func NewAgentInstrumentationApm(license string, displayName string, apmEndpoint 
 		return nil, err
 	}
 
-	return &agentInstrumentationApm{nrApp: nrApp, harvester: harvester}, nil
+	return &agentInstrumentationApm{nrApp: nrApp, harvester: harvester, hostnameResolver: resolver}, nil
 }

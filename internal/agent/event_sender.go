@@ -195,12 +195,19 @@ func (sender *metricsIngestSender) QueueEvent(event sample.Event, key entity.Key
 
 	select {
 	case sender.eventQueue <- queuedEvent:
-		metric := instrumentation.NewGauge("agent.eventQueueSize", float64(len(sender.eventQueue)))
-		instrumentation.SelfInstrumentation.RecordMetric(goContext.Background(), metric)
+		reportEventQueueMetrics(sender.eventQueue)
 		return nil
 	default:
+		reportEventQueueMetrics(sender.eventQueue)
 		return fmt.Errorf("could not queue event: queue is full")
 	}
+}
+
+func reportEventQueueMetrics(queue chan eventData) {
+	metric := instrumentation.NewGauge("agent.eventQueueSize", float64(len(queue)))
+	instrumentation.SelfInstrumentation.RecordMetric(goContext.Background(), metric)
+	metric = instrumentation.NewGauge("agent.eventQueueCapacity", float64(cap(queue)))
+	instrumentation.SelfInstrumentation.RecordMetric(goContext.Background(), metric)
 }
 
 // Collect events from the queue and accumulate them into batches which can be sent up to metrics ingest.
