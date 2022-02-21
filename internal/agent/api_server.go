@@ -27,6 +27,7 @@ type ApiServer struct {
 	agent            *Agent
 	profilerContext  goContext.Context
 	profilerCancelFn goContext.CancelFunc
+	started          bool
 }
 
 func NewApiServer(cnf *config.Config, agent *Agent) *ApiServer {
@@ -38,11 +39,12 @@ func NewApiServer(cnf *config.Config, agent *Agent) *ApiServer {
 }
 
 func (s *ApiServer) Toogle() {
-	if s.httpServer == nil {
-		s.Start()
-	} else {
+	if s.started {
 		s.Stop()
+	} else {
+		s.Start()
 	}
+	s.started = !s.started
 }
 
 func (s *ApiServer) Start() {

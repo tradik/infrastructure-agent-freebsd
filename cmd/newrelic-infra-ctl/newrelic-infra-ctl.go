@@ -82,7 +82,7 @@ func interactiveMode() {
 	if err != nil {
 		log.Fatalln("Cannot get get client: %w", err)
 	}
-	enableAgentApi(ctx, client)
+	toogleAgentApi(ctx, client)
 	startGridUI()
 }
 
@@ -102,12 +102,12 @@ func cliMode() {
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize the notification client.")
 	}
-	enableAgentApi(ctx, client)
+	toogleAgentApi(ctx, client)
 	logrus.Infof("Notification successfully sent to the NRI Agent with ID '%s'", client.GetID())
 
 }
 
-func enableAgentApi(ctx context.Context, client sender.Client) {
+func toogleAgentApi(ctx context.Context, client sender.Client) {
 	msg := ipc.EnableAgentAPI
 	logrus.Debug("Sending message to agent: " + fmt.Sprint(msg))
 	if err := client.Notify(ctx, msg); err != nil {
@@ -127,6 +127,8 @@ func getAgentPID() (int, error) {
 func startGridUI() {
 	app := tview.NewApplication()
 
+	pages := tview.NewPages()
+
 	list := tview.NewList().
 		AddItem("Start memory profiler", "Start memory profiler with interval 5s and filePath /tmp/agent_mem_profile_ ", 0, func() {
 			startMemoryProfiler(5, "/tmp/agent_mem_profile_")
@@ -136,9 +138,35 @@ func startGridUI() {
 			stopMemoryProfiler()
 			return
 		}).
+		AddItem("Start CPU profiler", "Stop memory profiler if started ", 0, func() {
+			stopMemoryProfiler()
+			return
+		}).
+		AddItem("Enable verbose logs", "", 0, func() {
+			return
+		}).
+		AddItem("Clean cache (56MB)", "", 0, func() {
+			return
+		}).
+		AddItem("Clean logs (3.4GB)", "", 0, func() {
+			return
+		}).
+		AddItem("Enable Self instrumentation", "", 0, func() {
+			pages.SwitchToPage("self ins example")
+			return
+		}).
+		AddItem("Validate network connectivity", "", 0, func() {
+			return
+		}).
 		AddItem("Quit", "Press to exit [ESC]", 'q', func() {
+			client, err := getClient(agentPID)
+			if err != nil {
+				logrus.WithError(err).Fatal("Failed to initialize the notification client.")
+			}
+			toogleAgentApi(context.Background(), client)
 			app.Stop()
-		})
+		}).
+		ShowSecondaryText(false)
 
 	statsView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -148,8 +176,13 @@ func startGridUI() {
 			app.Draw()
 		})
 
+	footer := tview.NewTextView().
+		SetTextAlign(tview.AlignRight).
+		SetText(time.Now().Format("2006-01-02 15:04:05"))
+
+	start := time.Now().Add(-time.Hour * 25)
 	client := &http.Client{}
-	go func(statsView *tview.TextView) {
+	go func(statsView *tview.TextView, footer *tview.TextView) {
 
 		ticker := time.NewTicker(time.Second)
 
@@ -158,7 +191,9 @@ func startGridUI() {
 			case <-ticker.C:
 				metrics, err := Get(client, "http://localhost:9090")
 				if err != nil {
-					panic(err)
+					// TODO rethink this
+					return
+					//panic(err)
 				}
 				statsView.Clear()
 
@@ -178,23 +213,89 @@ func startGridUI() {
 					*metrics["newrelic_infra_instrumentation_batch_queue_depth_capacity"].Metric[0].Gauge.Value,
 					*metrics["newrelic_infra_instrumentation_batch_queue_depth_utilization"].Metric[0].Gauge.Value, //.Metric[0].Gauge.Value,
 				)
+
+				now := time.Now()
+				_, _, day, hour, min, sec := diff(start, now)
+				footer.Clear()
+				footer.SetText(fmt.Sprintf("%dd %dh %dm %ds | %s", day, hour, min, sec, time.Now().Format("2006-01-02 15:04:05")))
 			}
 		}
 
-	}(statsView)
+	}(statsView, footer)
 
 	grid := tview.NewGrid().
 		SetRows(1, 0, 1).
-		SetBorders(true)
+		SetBorders(true).
+		AddItem(footer, 2, 0, 1, 2, 0, 0, false)
 
 	grid.AddItem(list, 1, 0, 1, 1, 0, 0, true).
 		AddItem(statsView, 1, 1, 1, 1, 0, 0, false)
 
 	app.SetFocus(list)
 
-	if err := app.SetRoot(grid, true).EnableMouse(true).Run(); err != nil {
+	form := tview.NewForm().
+		AddInputField("License key", "", 20, nil, nil).
+		AddCheckbox("Staging", false, nil).
+		AddButton("Save", nil).
+		AddButton("Quit", func() {
+			pages.SwitchToPage("menu")
+		})
+	form.Box.SetRect(0, 0, 100, 100)
+	form.SetBorder(true).SetTitle("Enter some data").SetTitleAlign(tview.AlignLeft)
+
+	pages.AddPage("self ins example", form, false, false)
+	pages.AddPage("menu", grid, true, true)
+
+	if err := app.SetRoot(pages, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+}
+
+func diff(a, b time.Time) (year, month, day, hour, min, sec int) {
+	if a.Location() != b.Location() {
+		b = b.In(a.Location())
+	}
+	if a.After(b) {
+		a, b = b, a
+	}
+	y1, M1, d1 := a.Date()
+	y2, M2, d2 := b.Date()
+
+	h1, m1, s1 := a.Clock()
+	h2, m2, s2 := b.Clock()
+
+	year = int(y2 - y1)
+	month = int(M2 - M1)
+	day = int(d2 - d1)
+	hour = int(h2 - h1)
+	min = int(m2 - m1)
+	sec = int(s2 - s1)
+
+	// Normalize negative values
+	if sec < 0 {
+		sec += 60
+		min--
+	}
+	if min < 0 {
+		min += 60
+		hour--
+	}
+	if hour < 0 {
+		hour += 24
+		day--
+	}
+	if day < 0 {
+		// days in month:
+		t := time.Date(y1, M1, 32, 0, 0, 0, 0, time.UTC)
+		day += 32 - t.Day()
+		month--
+	}
+	if month < 0 {
+		month += 12
+		year--
+	}
+
+	return
 }
 
 func startMemoryProfiler(interval int, filepath string) {
