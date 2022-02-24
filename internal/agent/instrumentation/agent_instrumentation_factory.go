@@ -7,11 +7,11 @@ import (
 )
 
 func InitSelfInstrumentation(c *config.Config, resolver hostname.Resolver) {
-	if strings.ToLower(c.SelfInstrumentation) == "apm" && c.SelfInstrumentationLicenseKey != "" {
+	if strings.ToLower(c.SelfInstrumentation) == apmInstrumentationName {
 		apmSelfInstrumentation, err := NewAgentInstrumentationApm(
-			c.SelfInstrumentationLicenseKey,
-			c.SelfInstrumentationApmEndpoint,
-			c.SelfInstrumentationTelemetryEndpoint,
+			c.License,
+			c.SelfInstrumentationApmHost,
+			c.MetricURL,
 			resolver,
 		)
 		if err == nil {

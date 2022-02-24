@@ -10,7 +10,10 @@ import (
 
 const transactionInContextKey = iota
 
-const appName = "New Relic Infrastructure Agent"
+const (
+	appName                = "New Relic Infrastructure Agent"
+	apmInstrumentationName = "newrelic"
+)
 
 type agentInstrumentationApm struct {
 	nrApp            *newrelic.Application

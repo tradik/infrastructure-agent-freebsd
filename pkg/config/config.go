@@ -1065,15 +1065,10 @@ type Config struct {
 	// Public: No
 	SelfInstrumentation string `yaml:"self_instrumentation" envconfig:"self_instrumentation"`
 
-	// SelfInstrumentationLicenseKey license key for apm self instrumentation
-	// Default: empty
+	// SelfInstrumentationApmHost defines the url for APM collector host
+	// Default: collector.newrelic.com
 	// Public: No
-	SelfInstrumentationLicenseKey string `yaml:"self_instrumentation_license_key" envconfig:"self_instrumentation_license_key"`
-
-	// SelfInstrumentationApmEndpoint OpenTelemetry endpoint for self instrumentation
-	// Default: empty
-	// Public: No
-	SelfInstrumentationApmEndpoint string `yaml:"self_instrumentation_apm_endpoint" envconfig:"self_instrumentation_apm_endpoint"`
+	SelfInstrumentationApmHost string `yaml:"self_instrumentation_apm_host" envconfig:"self_instrumentation_apm_host"`
 
 	// SelfInstrumentationTelemetryEndpoint OpenTelemetry endpoint for self instrumentation
 	// Default: empty
@@ -1548,6 +1543,24 @@ func calculateCmdChannelStagingURL(licenseKey string) string {
 	return defaultCmdChannelStagingURL
 }
 
+func calculateSelfInstrumentationApmHost(licenseKey string, staging bool, fedramp bool) string {
+	if staging {
+		return defaultAPMCollectorHostStaging
+	}
+	if fedramp {
+		return defaultSecureFederalAPMCollectorHost
+	}
+	return calculateSelfInstrumentationApmProductionHost(licenseKey)
+}
+
+func calculateSelfInstrumentationApmProductionHost(licenseKey string) string {
+	// only EU supported
+	if license.IsRegionEU(licenseKey) {
+		return defaultAPMCollectorHostEu
+	}
+	return defaultAPMCollectorHost
+}
+
 func calculateDimensionalMetricURL(collectorURL string, licenseKey string, staging, fedramp bool) string {
 	if collectorURL != "" {
 		return collectorURL
@@ -1878,6 +1891,10 @@ func NormalizeConfig(cfg *Config, cfgMetadata config_loader.YAMLMetadata) (err e
 
 	if cfg.MemProfile != "" && cfg.MemProfileInterval == 0 {
 		cfg.MemProfileInterval = defaultMemProfileInterval
+	}
+
+	if cfg.SelfInstrumentationApmHost == "" {
+		cfg.SelfInstrumentationApmHost = calculateSelfInstrumentationApmHost(cfg.License, cfg.Staging, cfg.Fedramp)
 	}
 
 	return
