@@ -26,7 +26,7 @@ env:
 
 jobs:
   unit-test:
-    uses: newrelic/infrastructure-agent/.github/workflows/component_windows_unit_test.yml@master
+    uses: newrelic/infrastructure-agent/.github/workflows/component_windows_unit_test.yml@id_repo-on-demand_rebase
 
   # Keeping it as no component until we figure out how to pass env variables to component
   packaging-windows:
@@ -79,7 +79,7 @@ jobs:
   publishing-to-s3:
     # TODO point to staging after tests
     name: Publish windows artifacts into s3 staging bucket
-    uses: newrelic/infrastructure-agent/.github/workflows/component_windows_publish.yml@master
+    uses: newrelic/infrastructure-agent/.github/workflows/component_windows_publish.yml@id_repo-on-demand_rebase
     needs: [packaging-windows]
     secrets:
       DOCKER_HUB_ID: ${{secrets.OHAI_DOCKER_HUB_ID}}

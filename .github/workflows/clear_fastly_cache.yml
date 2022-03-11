@@ -6,7 +6,7 @@ on:
 jobs:
   purge-cdn:
     name: Purge CDN
-    uses: newrelic/infrastructure-agent/.github/workflows/component_purge_cdn.yml@master
+    uses: newrelic/infrastructure-agent/.github/workflows/component_purge_cdn.yml@id_repo-on-demand_rebase
     secrets:
       FASTLY_KEY: ${{secrets.FASTLY_KEY }}
       AWS_ACCESS_KEY_ID: ${{ secrets.OHAI_AWS_ACCESS_KEY_ID_PRODUCTION }}
