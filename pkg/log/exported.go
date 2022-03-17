@@ -9,6 +9,7 @@ package log
 
 import (
 	"io"
+	"reflect"
 	"sync"
 
 	"github.com/newrelic/infrastructure-agent/internal/instrumentation"
@@ -22,10 +23,11 @@ type wrap struct {
 	smartVerboseMode bool
 
 	// Stores log entries in Smart Verbose mode
-	logCache           []log
-	cachedEntryCounter int
-	cachedEntryLimit   int
-	mu                 *sync.Mutex
+	logCache            []log
+	cachedEntryCounter  int
+	cachedEntryLimit    int
+	mu                  *sync.Mutex
+	filteredByComponent []string
 
 	// Instrumentation
 	measure instrumentation.Measure
@@ -38,8 +40,11 @@ type log struct {
 
 // usual singleton access used on the codebase
 var w = wrap{
-	l:       logrus.StandardLogger(),
-	mu:      &sync.Mutex{},
+	l:  logrus.StandardLogger(),
+	mu: &sync.Mutex{},
+	filteredByComponent: []string{
+		"AgentService",
+	},
 	measure: func(instrumentation.MetricType, instrumentation.MetricName, int64) {},
 }
 
@@ -104,7 +109,33 @@ func AddHook(hook logrus.Hook) {
 
 // SetFormatter sets the standard logger formatter.
 func SetFormatter(formatter logrus.Formatter) {
-	w.l.SetFormatter(formatter)
+	compFormatter := ComponentFormatter{
+		filteredFields: map[string]interface{}{
+			"component":        "integrations.runner.Runner",
+			"integration_name": "nri-flex",
+		},
+		originalFormatter: formatter,
+	}
+	w.l.SetFormatter(&compFormatter)
+}
+
+type ComponentFormatter struct {
+	filteredFields    map[string]interface{}
+	originalFormatter logrus.Formatter
+}
+
+func (f *ComponentFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	if len(f.filteredFields) > 0 {
+		for key, val := range f.filteredFields {
+			if fieldVal, ok := entry.Data[key]; ok {
+				if reflect.DeepEqual(val, fieldVal) {
+					continue
+				}
+			}
+			return nil, nil
+		}
+	}
+	return f.originalFormatter.Format(entry)
 }
 
 // SetLevel sets the standard logger level.

@@ -556,6 +556,8 @@ func configureLogFormat(logFormat string) {
 			},
 		}
 		wlog.SetFormatter(jsonFormatter)
+	} else {
+		wlog.SetFormatter(&logrus.TextFormatter{})
 	}
 }
 
