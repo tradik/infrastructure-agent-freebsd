@@ -50,6 +50,7 @@ func createAgentAndStart(t *testing.T, scenario string) *agent.Emulator {
 	integrationsConfigPath := filepath.Join("testdata", "scenarios", scenario)
 	a := agent.New(integrationsConfigPath, niDir)
 	require.NoError(t, a.RunAgent())
+
 	return a
 }
 
